@@ -197,7 +197,7 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "組織表.csv"
     objOrgTableStep0001Path: Path = objOrgTableCsvPath.with_name("組織表_step0001.tsv")
     objOrgTableStep0002Path: Path = objOrgTableCsvPath.with_name("組織表_step0002.tsv")
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_name("組織表_step0003.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
@@ -227,7 +227,7 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
             # ●●の処理ここから
             # 組織表_step0002.tsv を読み込み、1 行目から順に 2 列目(PJ 名称) へ
             # add_project_code_prefix_step0003 の「コード付加」判定を行い、結果を
-            # 組織表.tsv に書き出す。
+            # 組織表_step0003.tsv に書き出す。
             # 判定条件 (add_project_code_prefix_step0003):
             # 1) PJ コードが空なら何もしない。
             # 2) PJ 名称が空なら、PJ コードを 2 列目に書き込む。
