@@ -1,0 +1,4 @@
+	setcompatiblemode 0x0F;
+	selectall;
+	filter "" , "Sort" , "000000000000000\"00000";
+	gofiletop;
