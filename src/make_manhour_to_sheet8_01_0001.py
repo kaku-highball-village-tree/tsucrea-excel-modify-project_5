@@ -171,17 +171,20 @@ def add_project_code_prefix_step0003(
     pszProjectName: str,
     pszProjectCode: str,
 ) -> str:
-    if pszProjectName == "":
+    # 3) PJ コードが空なら何もしない
+    if not pszProjectCode:
+        return pszProjectName
+    # 1) PJ 名称が空なら、PJ コードをそのまま返す
+    if not pszProjectName:
         return pszProjectCode
-    if re.match(r"^[A-Z]", pszProjectName) and re.match(
-        r"^(P\d{5}|[A-OQ-Z]\d{3})_",
-        pszProjectName,
-    ):
+    # 2) 既にコード付与済みか判定 (先頭が英大文字 + 数字複数 + "_" で始まる場合はそのまま)
+    if re.match(r"^[A-Z]\d+_", pszProjectName):
         return pszProjectName
-    if pszProjectCode == "":
+    # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する
+    pszCodePrefix = pszProjectCode.split("_", 1)[0] + "_"
+    if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
-    pszCodePrefix: str = pszProjectCode.split("_", 1)[0]
-    return pszCodePrefix + "_" + pszProjectName
+    return pszCodePrefix + pszProjectName
 
 
 def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
@@ -215,6 +218,18 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                         objRow[2] = normalize_org_table_field_step0002(objRow[2])
                     objStep0002Writer.writerow(objRow)
         with open(objOrgTableStep0002Path, "r", encoding="utf-8") as objStep0002File:
+            # ●●の処理ここから
+            # 組織表_step0002.tsv を読み込み、1 行目から順に 2 列目(PJ 名称) へ
+            # add_project_code_prefix_step0003 の「コード付加」判定を行い、結果を
+            # 組織表.tsv に書き出す。
+            # 判定条件 (add_project_code_prefix_step0003):
+            # 1) PJ コードが空なら何もしない。
+            # 2) PJ 名称が空なら、PJ コードを 2 列目に書き込む。
+            # 3) PJ 名称が「英大文字 + 数字複数 + '_'」で始まっていれば付加済みとみなす。
+            # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する
+            #    （既に同じ接頭辞で始まっていれば付け足さない）。
+            # 「3 列目が存在する場合のみ」という条件は廃止し、各行で 2 列目に対して
+            # 無条件でコード付加判定を行う。
             objStep0002Reader = csv.reader(objStep0002File, delimiter="\t")
             with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
                 objOrgTableWriter = csv.writer(
@@ -230,6 +245,7 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                             pszProjectCode,
                         )
                     objOrgTableWriter.writerow(objRow)
+            # ●●の処理ここまで
     else:
         pszOrgTableError = f"Error: 組織表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
