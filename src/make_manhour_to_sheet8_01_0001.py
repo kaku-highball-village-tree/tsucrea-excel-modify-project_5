@@ -219,6 +219,17 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                     delimiter="\t",
                     lineterminator="\n",
                 )
+                # ●●の処理ここから
+                # 組織表_step0001.tsv を読み込み、各行の 2 列目 / 3 列目に含まれる
+                # 半角・全角スペースをアンダースコアに置換して正規化し、
+                # 組織表_step0002.tsv に書き出す。
+                # 正規化仕様 (normalize_org_table_field_step0002):
+                # 1) スペース・全角スペースを "_" に置換する。
+                # 2) PJ コードが先頭にある場合、後続が「【」で始まっていれば
+                #    「コード_」の形式に整形する。
+                # 3) その他の英大文字 + 数字 3 桁のコードについても同様に
+                #    「コード_」の形式に整形する。
+                # ●●の処理ここまで
                 for objRow in objStep0001Reader:
                     if len(objRow) >= 2:
                         objRow[1] = normalize_org_table_field_step0002(objRow[1])
@@ -275,6 +286,13 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
             #             elif objMatchOther is not None:
             #                 objRow[1] = f"{objMatchOther.group(1)}_{objMatchOther.group(2)}"
             #         objOrgTableTsvWriter.writerow(objRow)
+            # ●●の処理ここから
+            # 組織表_step0003.tsv を読み込み、同一内容をそのまま
+            # 組織表.tsv の名前で保存する。
+            # 仕様:
+            #   - 組織表.tsv は 組織表_step0003.tsv と完全に同一内容。
+            #   - 追加の正規化処理や add_project_code_prefix_step0003 の再適用は行わない。
+            # ●●の処理ここまで
             shutil.copyfile(objOrgTableStep0003Path, objOrgTableTsvPath)
     else:
         pszOrgTableError = f"Error: 組織表.csv が見つかりません。Path = {objOrgTableCsvPath}"
