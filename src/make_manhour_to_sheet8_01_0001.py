@@ -3841,17 +3841,17 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         "第四インキュ",
     ]
     objIncubationPrioritySet: set[str] = set(objIncubationPriority)
-    objIncubationExceptionProjects: set[str] = {
-        "P25001",
-        "P25002",
-        "P25003",
-        "P25004",
-        "P25005",
-        "P25006",
-        "P25007",
-        "P25008",
-        "P25009",
-    }
+    objOrgTableBillingMap: Dict[str, str] = {}
+    if objOrgTableTsvPath.exists():
+        with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
+            objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
+            for objRow in objOrgTableReader:
+                if len(objRow) >= 4:
+                    pszProjectCodeOrg: str = objRow[2].strip()
+                    pszBillingCompany: str = objRow[3].strip()
+                    if pszProjectCodeOrg and pszBillingCompany:
+                        if pszProjectCodeOrg not in objOrgTableBillingMap:
+                            objOrgTableBillingMap[pszProjectCodeOrg] = pszBillingCompany
     objHoldProjectLines: List[str] = []
 
     def select_group_name_step08(
@@ -3860,13 +3860,13 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     ) -> str:
         if not objGroupNames:
             return ""
+        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0]
+        if pszProjectCodePrefix in objOrgTableBillingMap:
+            return objOrgTableBillingMap[pszProjectCodePrefix]
         pszProjectPrefix: str = pszProjectName[:1]
         if pszProjectPrefix in ["A", "H"]:
             return "本部"
         if pszProjectPrefix in ["J", "P"]:
-            pszProjectCode: str = pszProjectName.split("_", 1)[0]
-            if pszProjectPrefix == "P" and pszProjectCode in objIncubationExceptionProjects:
-                return "第一インキュ"
             objIncubations: List[str] = [
                 name for name in objGroupNames if name in objIncubationPrioritySet
             ]
