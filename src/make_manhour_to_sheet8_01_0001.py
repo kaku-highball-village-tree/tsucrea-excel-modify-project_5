@@ -28,6 +28,7 @@ import argparse
 import csv
 import os
 import re
+import shutil
 import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
@@ -254,23 +255,27 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                     objOrgTableWriter.writerow(objRow)
             # ●●の処理ここまで
         with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
-            objOrgTableStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
-            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
-                objOrgTableTsvWriter = csv.writer(
-                    objOrgTableTsvFile,
-                    delimiter="\t",
-                    lineterminator="\n",
-                )
-                for objRow in objOrgTableStep0003Reader:
-                    if len(objRow) >= 2:
-                        objName = objRow[1]
-                        objMatchP: re.Match[str] | None = re.match(r"^(P\d{5})_\1_(.*)$", objName)
-                        objMatchOther: re.Match[str] | None = re.match(r"^([A-Z]\d{3})_\1_(.*)$", objName)
-                        if objMatchP is not None:
-                            objRow[1] = f"{objMatchP.group(1)}_{objMatchP.group(2)}"
-                        elif objMatchOther is not None:
-                            objRow[1] = f"{objMatchOther.group(1)}_{objMatchOther.group(2)}"
-                    objOrgTableTsvWriter.writerow(objRow)
+            # 組織表_step0003.tsv を読み込み、PJ 名称の重複接頭辞を除去して
+            # 組織表.tsv を生成する処理（再度 add_project_code_prefix_step0003 を通す）が
+            # ここに実装されていたが、仕様変更により不要となったためコメントアウト。
+            # objOrgTableStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
+            # with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+            #     objOrgTableTsvWriter = csv.writer(
+            #         objOrgTableTsvFile,
+            #         delimiter="\t",
+            #         lineterminator="\n",
+            #     )
+            #     for objRow in objOrgTableStep0003Reader:
+            #         if len(objRow) >= 2:
+            #             objName = objRow[1]
+            #             objMatchP: re.Match[str] | None = re.match(r"^(P\d{5})_\1_(.*)$", objName)
+            #             objMatchOther: re.Match[str] | None = re.match(r"^([A-Z]\d{3})_\1_(.*)$", objName)
+            #             if objMatchP is not None:
+            #                 objRow[1] = f"{objMatchP.group(1)}_{objMatchP.group(2)}"
+            #             elif objMatchOther is not None:
+            #                 objRow[1] = f"{objMatchOther.group(1)}_{objMatchOther.group(2)}"
+            #         objOrgTableTsvWriter.writerow(objRow)
+            shutil.copyfile(objOrgTableStep0003Path, objOrgTableTsvPath)
     else:
         pszOrgTableError = f"Error: 組織表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
