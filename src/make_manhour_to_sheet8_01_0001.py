@@ -3681,12 +3681,35 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             return pszProjectName
         return pszProjectName[:iUnderscoreIndex]
 
+    #/*
+    # *
+    # * process_single_input後半
+    # *
+    # * 管轄PJ表.csvを読み込み、正規化した内容を
+    # * 管轄PJ表_step0004.tsvとして書き出す処理です。
+    # *
+    # * 処理の流れ:
+    # * ・管轄PJ表.csvを行ごとに読み、=match' を除去。
+    # * ・末尾の空セルを削除。
+    # * ・先頭列が "No" でない行について、
+    # * 　3列目のPJコードを正規化。
+    # * 　2列目のPJ名にもコード接頭辞が足りない場合は付与してから正規化。
+    # *
+    # * ・再度末尾の空セルを削除し、
+    # * 　タブ区切りで 管轄PJ表_step0004.tsvに出力する。
+    # * 　この結果、元の管轄PJ表.tsvを上書きせず、
+    # * 　正規化済みの別ファイル（step0004）を生成する。
+    # *
+    # */
+    #
+    # 1. 管轄PJ表の再生成（step0004）
+    #
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
-            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+            with open(objOrgTableStep0004Path, "w", encoding="utf-8") as objOrgTableTsvFile:
                 objOrgTableWriter = csv.writer(objOrgTableTsvFile, delimiter="\t", lineterminator="\n")
                 for objRow in objOrgTableReader:
                     objRow = [objCell.replace("=match'", "") for objCell in objRow]
@@ -3717,6 +3740,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         messagebox.showwarning("警告", pszOrgTableError)
         objRoot.destroy()
 
+    #
+    # 2. Sheet7/Sheet10 の生成と正規化
+    #
     with open(pszSheet7TsvPath, "r", encoding="utf-8") as objSheet7File:
         objSheet7Lines: List[str] = objSheet7File.readlines()
     with open(pszSheet10GroupTaskTsvPath, "r", encoding="utf-8") as objSheet10GroupFile:
@@ -3794,6 +3820,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 pszManhour = objColumns[2]
             objSheet10GroupRows.append((pszProjectName, pszGroupName, pszManhour))
 
+    #
+    # 3. 集計（プロジェクト別、グループ別）
+    #
     objAggregatedSeconds: Dict[str, int] = {}
     objAggregatedOrder: List[str] = []
     for pszProjectName, pszManhour in objSheet10Rows:
@@ -3836,7 +3865,11 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         "第四インキュ",
     ]
     objIncubationPrioritySet: set[str] = set(objIncubationPriority)
+    #
+    # 4. 計上カンパニーのマッピング読み込み
+    #
     objOrgTableBillingMap: Dict[str, str] = {}
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
     if objOrgTableTsvPath.exists():
         with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
             objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
@@ -3845,17 +3878,28 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
                     if pszProjectCodeOrg and pszBillingCompany:
-                        if pszProjectCodeOrg not in objOrgTableBillingMap:
-                            objOrgTableBillingMap[pszProjectCodeOrg] = pszBillingCompany
+                        pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefix: str = ""
+                        if pszProjectCodePrefixMatchP is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchP.group(1)
+                        elif pszProjectCodePrefixMatchOther is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
+                        if pszProjectCodePrefix:
+                            if pszProjectCodePrefix not in objOrgTableBillingMap:
+                                objOrgTableBillingMap[pszProjectCodePrefix] = pszBillingCompany
     objHoldProjectLines: List[str] = []
 
+    #
+    # 5. 所属グループ名の決定ロジック（select_group_name_step08）
+    #
     def select_group_name_step08(
         pszProjectName: str,
         objGroupNames: List[str],
     ) -> str:
         if not objGroupNames:
             return ""
-        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0]
+        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
         if pszProjectCodePrefix in objOrgTableBillingMap:
             return objOrgTableBillingMap[pszProjectCodePrefix]
         pszProjectPrefix: str = pszProjectName[:1]
@@ -3876,6 +3920,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 return objIncubations[0]
         return objGroupNames[0]
 
+    #
+    # 6. グループ別合計TSVの出力
+    #
     with open(pszSheet11GroupTsvPath, "w", encoding="utf-8") as objSheet11GroupFile:
         for pszProjectName in objAggregatedGroupOrder:
             pszTotalManhour = format_seconds_to_manhour_sheet11(
@@ -3889,6 +3936,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 pszProjectName + "\t" + pszGroupName + "\t" + pszTotalManhour + "\n",
             )
 
+    #
+    # 7. インキュ重複プロジェクトの警告出力
+    #
     if objHoldProjectLines:
         pszInputFileLine: str = f"入力ファイル名: {objInputPath.name}"
         pszGroupTsvLine: str = f"対象TSV: {pszSheet10GroupTsvPath}"
@@ -3912,6 +3962,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         messagebox.showwarning("警告", objMessage)
         objRoot.destroy()
 
+    #
+    # 8. 最終ソート・出力
+    #
     objIndexedSheet11Rows: List[Tuple[int, Tuple[str, str]]] = list(enumerate(objSheet11Rows))
     objIndexedSheet11Rows.sort(
         key=lambda objItem: (
