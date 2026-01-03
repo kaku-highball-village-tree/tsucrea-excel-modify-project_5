@@ -208,6 +208,7 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
     objOrgTableStep0002Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0002.tsv")
     objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0003.tsv")
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
