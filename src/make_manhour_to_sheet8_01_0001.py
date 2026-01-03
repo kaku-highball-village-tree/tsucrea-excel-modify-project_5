@@ -3878,8 +3878,16 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
                     if pszProjectCodeOrg and pszBillingCompany:
-                        if pszProjectCodeOrg not in objOrgTableBillingMap:
-                            objOrgTableBillingMap[pszProjectCodeOrg] = pszBillingCompany
+                        pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefix: str = ""
+                        if pszProjectCodePrefixMatchP is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchP.group(1)
+                        elif pszProjectCodePrefixMatchOther is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
+                        if pszProjectCodePrefix:
+                            if pszProjectCodePrefix not in objOrgTableBillingMap:
+                                objOrgTableBillingMap[pszProjectCodePrefix] = pszBillingCompany
     objHoldProjectLines: List[str] = []
 
     #
@@ -3891,7 +3899,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     ) -> str:
         if not objGroupNames:
             return ""
-        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0]
+        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
         if pszProjectCodePrefix in objOrgTableBillingMap:
             return objOrgTableBillingMap[pszProjectCodePrefix]
         pszProjectPrefix: str = pszProjectName[:1]
