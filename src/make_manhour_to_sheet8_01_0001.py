@@ -167,24 +167,28 @@ def normalize_org_table_project_code(pszValue: str) -> str:
     """
     return normalize_org_table_field_step0002(pszValue)
 
+# ●●add_project_code_prefix_step0003の処理ここから
 def add_project_code_prefix_step0003(
     pszProjectName: str,
     pszProjectCode: str,
 ) -> str:
-    # 3) PJ コードが空なら何もしない
+    # 1) PJ コードが空なら何もしない
     if not pszProjectCode:
         return pszProjectName
-    # 1) PJ 名称が空なら、PJ コードをそのまま返す
+    # 2) PJ 名称が空なら、PJ コードをそのまま返す
     if not pszProjectName:
         return pszProjectCode
-    # 2) 既にコード付与済みか判定 (先頭が英大文字 + 数字複数 + "_" で始まる場合はそのまま)
-    if re.match(r"^[A-Z]\d+_", pszProjectName):
-        return pszProjectName
-    # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する
+    # 接頭辞を先に抽出
     pszCodePrefix = pszProjectCode.split("_", 1)[0] + "_"
+    # 3) 同じ接頭辞が既に付いていればそのまま返す（重複防止の最優先ガード）
     if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
+    # 4) 先頭が英大文字+数字+_ で始まる場合は付加済みとみなす
+    if re.match(r"^[A-Z]\d+_", pszProjectName):
+        return pszProjectName
+    # 5) 上記をすべてスルーした場合のみ接頭辞を付加する
     return pszCodePrefix + pszProjectName
+# ●●add_project_code_prefix_step0003の処理ここまで
 
 
 def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
