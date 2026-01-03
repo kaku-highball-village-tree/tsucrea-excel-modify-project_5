@@ -3745,6 +3745,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     for objRow in objStep0003Reader:
                         if len(objRow) > 1:
                             objRow = [objRow[0]] + objRow[2:]
+                        objRow = [objCell.replace("=match'", "") for objCell in objRow]
+                        while objRow and objRow[-1] == "":
+                            objRow.pop()
                         objStep0005Writer.writerow(objRow)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
