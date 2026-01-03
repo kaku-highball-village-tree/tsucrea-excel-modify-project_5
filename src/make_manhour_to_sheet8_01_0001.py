@@ -3681,6 +3681,26 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             return pszProjectName
         return pszProjectName[:iUnderscoreIndex]
 
+    #/*
+    # *
+    # * process_single_input後半
+    # *
+    # * 管轄PJ表.csvを読み込み、正規化した内容を
+    # * 管轄PJ表_step0004.tsvとして書き出す処理です。
+    # *
+    # * 処理の流れ:
+    # * ・管轄PJ表.csvを行ごとに読み、=match' を除去。
+    # * ・末尾の空セルを削除。
+    # * ・先頭列が "No" でない行について、
+    # * 　3列目のPJコードを正規化。
+    # * 　2列目のPJ名にもコード接頭辞が足りない場合は付与してから正規化。
+    # *
+    # * ・再度末尾の空セルを削除し、
+    # * 　タブ区切りで 管轄PJ表_step0004.tsvに出力する。
+    # * 　この結果、元の管轄PJ表.tsvを上書きせず、
+    # * 　正規化済みの別ファイル（step0004）を生成する。
+    # *
+    # */
     #
     # 1. 管轄PJ表の再生成（step0004）
     #
