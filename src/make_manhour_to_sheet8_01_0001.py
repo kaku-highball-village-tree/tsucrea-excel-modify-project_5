@@ -28,6 +28,7 @@ import argparse
 import csv
 import os
 import re
+import shutil
 import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
@@ -159,7 +160,7 @@ def normalize_org_table_field_step0002(pszValue: str) -> str:
 
 
 def normalize_org_table_project_code(pszValue: str) -> str:
-    """Normalize project code/name fields from 組織表.
+    """Normalize project code/name fields from 管轄PJ表.
 
     Historically this script used `normalize_org_table_field_step0002` for normalization.
     Some Codex edits referenced `normalize_org_table_project_code`; keep it as a thin
@@ -178,8 +179,16 @@ def add_project_code_prefix_step0003(
     # 2) PJ 名称が空なら、PJ コードをそのまま返す
     if not pszProjectName:
         return pszProjectCode
-    # 3) 接頭辞を抽出
-    pszCodePrefix = pszProjectCode.split("_", 1)[0] + "_"
+    # 3) 接頭辞候補(コード先頭部)を抽出し、形式をチェック
+    pszCandidateCode: str = pszProjectCode.split("_", 1)[0]
+    bIsValidProjectCode: bool = False
+    if re.match(r"^P\d{5}$", pszCandidateCode):
+        bIsValidProjectCode = True
+    elif re.match(r"^[A-Z]\d{3}$", pszCandidateCode):
+        bIsValidProjectCode = True
+    if not bIsValidProjectCode:
+        return pszProjectName
+    pszCodePrefix = pszCandidateCode + "_"
     # 4) 同一接頭辞ガード（最優先）
     if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
@@ -194,11 +203,12 @@ def add_project_code_prefix_step0003(
 
 
 def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
-    objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "組織表.csv"
-    objOrgTableStep0001Path: Path = objOrgTableCsvPath.with_name("組織表_step0001.tsv")
-    objOrgTableStep0002Path: Path = objOrgTableCsvPath.with_name("組織表_step0002.tsv")
-    objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("組織表_step0003.tsv")
+    objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
+    objOrgTableStep0001Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0001.tsv")
+    objOrgTableStep0002Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0002.tsv")
+    objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0003.tsv")
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
@@ -218,6 +228,17 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                     delimiter="\t",
                     lineterminator="\n",
                 )
+                # ●●の処理ここから
+                # 管轄PJ表_step0001.tsv を読み込み、各行の 2 列目 / 3 列目に含まれる
+                # 半角・全角スペースをアンダースコアに置換して正規化し、
+                # 管轄PJ表_step0002.tsv に書き出す。
+                # 正規化仕様 (normalize_org_table_field_step0002):
+                # 1) スペース・全角スペースを "_" に置換する。
+                # 2) PJ コードが先頭にある場合、後続が「【」で始まっていれば
+                #    「コード_」の形式に整形する。
+                # 3) その他の英大文字 + 数字 3 桁のコードについても同様に
+                #    「コード_」の形式に整形する。
+                # ●●の処理ここまで
                 for objRow in objStep0001Reader:
                     if len(objRow) >= 2:
                         objRow[1] = normalize_org_table_field_step0002(objRow[1])
@@ -226,9 +247,9 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                     objStep0002Writer.writerow(objRow)
         with open(objOrgTableStep0002Path, "r", encoding="utf-8") as objStep0002File:
             # ●●の処理ここから
-            # 組織表_step0002.tsv を読み込み、1 行目から順に 2 列目(PJ 名称) へ
+            # 管轄PJ表_step0002.tsv を読み込み、1 行目から順に 2 列目(PJ 名称) へ
             # add_project_code_prefix_step0003 の「コード付加」判定を行い、結果を
-            # 組織表_step0003.tsv に書き出す（中間ファイル）。
+            # 管轄PJ表_step0003.tsv に書き出す（中間ファイル）。
             # 判定条件 (add_project_code_prefix_step0003):
             # 1) PJ コードが空なら何もしない。
             # 2) PJ 名称が空なら、PJ コードを 2 列目に書き込む。
@@ -254,25 +275,39 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                     objOrgTableWriter.writerow(objRow)
             # ●●の処理ここまで
         with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
-            objOrgTableStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
-            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
-                objOrgTableTsvWriter = csv.writer(
-                    objOrgTableTsvFile,
-                    delimiter="\t",
-                    lineterminator="\n",
-                )
-                for objRow in objOrgTableStep0003Reader:
-                    if len(objRow) >= 2:
-                        objName = objRow[1]
-                        objMatchP: re.Match[str] | None = re.match(r"^(P\d{5})_\1_(.*)$", objName)
-                        objMatchOther: re.Match[str] | None = re.match(r"^([A-Z]\d{3})_\1_(.*)$", objName)
-                        if objMatchP is not None:
-                            objRow[1] = f"{objMatchP.group(1)}_{objMatchP.group(2)}"
-                        elif objMatchOther is not None:
-                            objRow[1] = f"{objMatchOther.group(1)}_{objMatchOther.group(2)}"
-                    objOrgTableTsvWriter.writerow(objRow)
+            # 管轄PJ表_step0003.tsv を読み込み、PJ 名称の重複接頭辞を除去して
+            # 管轄PJ表_step0004.tsv を生成する処理（再度 add_project_code_prefix_step0003 を通す）が
+            # ここに実装されていたが、仕様変更により不要となったためコメントアウト。
+            # objOrgTableStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
+            # with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+            #     objOrgTableTsvWriter = csv.writer(
+            #         objOrgTableTsvFile,
+            #         delimiter="\t",
+            #         lineterminator="\n",
+            #     )
+            #     for objRow in objOrgTableStep0003Reader:
+            #         if len(objRow) >= 2:
+            #             objName = objRow[1]
+            #             objMatchP: re.Match[str] | None = re.match(r"^(P\d{5})_\1_(.*)$", objName)
+            #             objMatchOther: re.Match[str] | None = re.match(r"^([A-Z]\d{3})_\1_(.*)$", objName)
+            #             if objMatchP is not None:
+            #                 objRow[1] = f"{objMatchP.group(1)}_{objMatchP.group(2)}"
+            #             elif objMatchOther is not None:
+            #                 objRow[1] = f"{objMatchOther.group(1)}_{objMatchOther.group(2)}"
+            #         objOrgTableTsvWriter.writerow(objRow)
+            # ●●の処理ここから
+            # 管轄PJ表_step0003.tsv を読み込み、同一内容をそのまま
+            # 管轄PJ表.tsv および 管轄PJ表_step0004.tsv の名前で保存する。
+            # 仕様:
+            #   - 管轄PJ表.tsv / 管轄PJ表_step0004.tsv は 管轄PJ表_step0003.tsv と完全に同一内容。
+            #   - 追加の正規化処理や add_project_code_prefix_step0003 の再適用は行わない。
+            # ●●の処理ここまで
+            if objOrgTableStep0003Path != objOrgTableTsvPath:
+                shutil.copyfile(objOrgTableStep0003Path, objOrgTableTsvPath)
+            if objOrgTableStep0003Path != objOrgTableStep0004Path:
+                shutil.copyfile(objOrgTableStep0003Path, objOrgTableStep0004Path)
     else:
-        pszOrgTableError = f"Error: 組織表.csv が見つかりません。Path = {objOrgTableCsvPath}"
+        pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
         write_debug_error(pszOrgTableError, objBaseDirectoryPath)
         objRoot = tk.Tk()
@@ -3653,8 +3688,8 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             return pszProjectName
         return pszProjectName[:iUnderscoreIndex]
 
-    objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "組織表.csv"
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
@@ -3681,7 +3716,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                         objRow.pop()
                     objOrgTableWriter.writerow(objRow)
     else:
-        pszOrgTableError = f"Error: 組織表.csv が見つかりません。Path = {objOrgTableCsvPath}"
+        pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
         write_debug_error(pszOrgTableError, objBaseDirectoryPath)
         objRoot = tk.Tk()
