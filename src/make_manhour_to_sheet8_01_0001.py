@@ -178,15 +178,17 @@ def add_project_code_prefix_step0003(
     # 2) PJ 名称が空なら、PJ コードをそのまま返す
     if not pszProjectName:
         return pszProjectCode
-    # 接頭辞を先に抽出
+    # 3) 接頭辞を抽出
     pszCodePrefix = pszProjectCode.split("_", 1)[0] + "_"
-    # 3) 同じ接頭辞が既に付いていればそのまま返す（重複防止の最優先ガード）
+    # 4) 同一接頭辞ガード（最優先）
     if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
-    # 4) 先頭が英大文字+数字+_ で始まる場合は付加済みとみなす
-    if re.match(r"^[A-Z]\d+_", pszProjectName):
+    # 5) 他コード付与済みガード（正規表現）
+    if re.match(r"^P\d{5}_", pszProjectName):
         return pszProjectName
-    # 5) 上記をすべてスルーした場合のみ接頭辞を付加する
+    if re.match(r"^[A-Z]\d{3}_", pszProjectName):
+        return pszProjectName
+    # 6) 上記をすべて通過した場合のみ接頭辞を付加
     return pszCodePrefix + pszProjectName
 # ●●add_project_code_prefix_step0003の処理ここまで
 
