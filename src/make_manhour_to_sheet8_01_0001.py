@@ -276,7 +276,7 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
             # ●●の処理ここまで
         with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
             # 管轄PJ表_step0003.tsv を読み込み、PJ 名称の重複接頭辞を除去して
-            # 管轄PJ表_step0004.tsv を生成する処理（再度 add_project_code_prefix_step0003 を通す）が
+            # 管轄PJ表.tsv を生成する処理（再度 add_project_code_prefix_step0003 を通す）が
             # ここに実装されていたが、仕様変更により不要となったためコメントアウト。
             # objOrgTableStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
             # with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
@@ -297,15 +297,13 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
             #         objOrgTableTsvWriter.writerow(objRow)
             # ●●の処理ここから
             # 管轄PJ表_step0003.tsv を読み込み、同一内容をそのまま
-            # 管轄PJ表.tsv および 管轄PJ表_step0004.tsv の名前で保存する。
+            # 管轄PJ表.tsv の名前で保存する。
             # 仕様:
-            #   - 管轄PJ表.tsv / 管轄PJ表_step0004.tsv は 管轄PJ表_step0003.tsv と完全に同一内容。
+            #   - 管轄PJ表.tsv は 管轄PJ表_step0003.tsv と完全に同一内容。
             #   - 追加の正規化処理や add_project_code_prefix_step0003 の再適用は行わない。
             # ●●の処理ここまで
             if objOrgTableStep0003Path != objOrgTableTsvPath:
                 shutil.copyfile(objOrgTableStep0003Path, objOrgTableTsvPath)
-            if objOrgTableStep0003Path != objOrgTableStep0004Path:
-                shutil.copyfile(objOrgTableStep0003Path, objOrgTableStep0004Path)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
@@ -3689,7 +3687,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         return pszProjectName[:iUnderscoreIndex]
 
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
