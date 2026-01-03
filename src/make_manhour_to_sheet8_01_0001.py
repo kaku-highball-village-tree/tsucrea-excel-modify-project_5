@@ -207,7 +207,8 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
     objOrgTableStep0001Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0001.tsv")
     objOrgTableStep0002Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0002.tsv")
     objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0003.tsv")
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
@@ -296,13 +297,15 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
             #         objOrgTableTsvWriter.writerow(objRow)
             # ●●の処理ここから
             # 管轄PJ表_step0003.tsv を読み込み、同一内容をそのまま
-            # 管轄PJ表_step0004.tsv の名前で保存する。
+            # 管轄PJ表.tsv および 管轄PJ表_step0004.tsv の名前で保存する。
             # 仕様:
-            #   - 管轄PJ表_step0004.tsv は 管轄PJ表_step0003.tsv と完全に同一内容。
+            #   - 管轄PJ表.tsv / 管轄PJ表_step0004.tsv は 管轄PJ表_step0003.tsv と完全に同一内容。
             #   - 追加の正規化処理や add_project_code_prefix_step0003 の再適用は行わない。
             # ●●の処理ここまで
             if objOrgTableStep0003Path != objOrgTableTsvPath:
                 shutil.copyfile(objOrgTableStep0003Path, objOrgTableTsvPath)
+            if objOrgTableStep0003Path != objOrgTableStep0004Path:
+                shutil.copyfile(objOrgTableStep0003Path, objOrgTableStep0004Path)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
