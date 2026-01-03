@@ -179,16 +179,11 @@ def add_project_code_prefix_step0003(
     # 2) PJ 名称が空なら、PJ コードをそのまま返す
     if not pszProjectName:
         return pszProjectCode
-    # 3) 接頭辞候補(コード先頭部)を抽出し、形式をチェック
-    pszCandidateCode: str = pszProjectCode.split("_", 1)[0]
-    bIsValidProjectCode: bool = False
-    if re.match(r"^P\d{5}$", pszCandidateCode):
-        bIsValidProjectCode = True
-    elif re.match(r"^[A-Z]\d{3}$", pszCandidateCode):
-        bIsValidProjectCode = True
-    if not bIsValidProjectCode:
+    # 3) 接頭辞候補(コード先頭部)を抽出し、形式をチェック（末尾に "_" が必須）
+    objCodeMatch: re.Match[str] | None = re.match(r"^(P\d{5}_|[A-Z]\d{3}_)", pszProjectCode)
+    if objCodeMatch is None:
         return pszProjectName
-    pszCodePrefix = pszCandidateCode + "_"
+    pszCodePrefix: str = objCodeMatch.group(1)
     # 4) 同一接頭辞ガード（最優先）
     if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
