@@ -3682,11 +3682,11 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         return pszProjectName[:iUnderscoreIndex]
 
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
-            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+            with open(objOrgTableStep0004Path, "w", encoding="utf-8") as objOrgTableTsvFile:
                 objOrgTableWriter = csv.writer(objOrgTableTsvFile, delimiter="\t", lineterminator="\n")
                 for objRow in objOrgTableReader:
                     objRow = [objCell.replace("=match'", "") for objCell in objRow]
@@ -3837,8 +3837,8 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     ]
     objIncubationPrioritySet: set[str] = set(objIncubationPriority)
     objOrgTableBillingMap: Dict[str, str] = {}
-    if objOrgTableTsvPath.exists():
-        with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
+    if objOrgTableStep0004Path.exists():
+        with open(objOrgTableStep0004Path, "r", encoding="utf-8") as objOrgTableFile:
             objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
             for objRow in objOrgTableReader:
                 if len(objRow) >= 4:
