@@ -3706,6 +3706,8 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     #
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
     objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
+    objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0003.tsv")
+    objOrgTableStep0005Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0005.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
@@ -3731,6 +3733,19 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     while objRow and objRow[-1] == "":
                         objRow.pop()
                     objOrgTableWriter.writerow(objRow)
+        if objOrgTableStep0003Path.exists():
+            with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
+                objStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
+                with open(objOrgTableStep0005Path, "w", encoding="utf-8") as objOrgTableStep0005File:
+                    objStep0005Writer = csv.writer(
+                        objOrgTableStep0005File,
+                        delimiter="\t",
+                        lineterminator="\n",
+                    )
+                    for objRow in objStep0003Reader:
+                        if len(objRow) > 1:
+                            objRow = [objRow[0]] + objRow[2:]
+                        objStep0005Writer.writerow(objRow)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
