@@ -3869,8 +3869,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     # 4. 計上カンパニーのマッピング読み込み
     #
     objOrgTableBillingMap: Dict[str, str] = {}
-    if objOrgTableStep0004Path.exists():
-        with open(objOrgTableStep0004Path, "r", encoding="utf-8") as objOrgTableFile:
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    if objOrgTableTsvPath.exists():
+        with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
             objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
             for objRow in objOrgTableReader:
                 if len(objRow) >= 4:
