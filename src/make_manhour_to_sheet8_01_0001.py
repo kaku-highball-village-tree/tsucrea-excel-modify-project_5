@@ -167,27 +167,37 @@ def normalize_org_table_project_code(pszValue: str) -> str:
     """
     return normalize_org_table_field_step0002(pszValue)
 
+# ●●add_project_code_prefix_step0003の処理ここから
 def add_project_code_prefix_step0003(
     pszProjectName: str,
     pszProjectCode: str,
 ) -> str:
-    if pszProjectName == "":
+    # 1) PJ コードが空なら何もしない
+    if not pszProjectCode:
+        return pszProjectName
+    # 2) PJ 名称が空なら、PJ コードをそのまま返す
+    if not pszProjectName:
         return pszProjectCode
-    if re.match(r"^[A-Z]", pszProjectName) and re.match(
-        r"^(P\d{5}|[A-OQ-Z]\d{3})_",
-        pszProjectName,
-    ):
+    # 3) 接頭辞を抽出
+    pszCodePrefix = pszProjectCode.split("_", 1)[0] + "_"
+    # 4) 同一接頭辞ガード（最優先）
+    if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
-    if pszProjectCode == "":
+    # 5) 他コード付与済みガード（正規表現）
+    if re.match(r"^P\d{5}_", pszProjectName):
         return pszProjectName
-    pszCodePrefix: str = pszProjectCode.split("_", 1)[0]
-    return pszCodePrefix + "_" + pszProjectName
+    if re.match(r"^[A-Z]\d{3}_", pszProjectName):
+        return pszProjectName
+    # 6) 上記をすべて通過した場合のみ接頭辞を付加
+    return pszCodePrefix + pszProjectName
+# ●●add_project_code_prefix_step0003の処理ここまで
 
 
 def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "組織表.csv"
     objOrgTableStep0001Path: Path = objOrgTableCsvPath.with_name("組織表_step0001.tsv")
     objOrgTableStep0002Path: Path = objOrgTableCsvPath.with_name("組織表_step0002.tsv")
+    objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("組織表_step0003.tsv")
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
@@ -215,10 +225,22 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                         objRow[2] = normalize_org_table_field_step0002(objRow[2])
                     objStep0002Writer.writerow(objRow)
         with open(objOrgTableStep0002Path, "r", encoding="utf-8") as objStep0002File:
+            # ●●の処理ここから
+            # 組織表_step0002.tsv を読み込み、1 行目から順に 2 列目(PJ 名称) へ
+            # add_project_code_prefix_step0003 の「コード付加」判定を行い、結果を
+            # 組織表_step0003.tsv に書き出す（中間ファイル）。
+            # 判定条件 (add_project_code_prefix_step0003):
+            # 1) PJ コードが空なら何もしない。
+            # 2) PJ 名称が空なら、PJ コードを 2 列目に書き込む。
+            # 3) PJ 名称が「英大文字 + 数字複数 + '_'」で始まっていれば付加済みとみなす。
+            # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する
+            #    （既に同じ接頭辞で始まっていれば付け足さない）。
+            # 「3 列目が存在する場合のみ」という条件は廃止し、各行で 2 列目に対して
+            # 無条件でコード付加判定を行う。
             objStep0002Reader = csv.reader(objStep0002File, delimiter="\t")
-            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+            with open(objOrgTableStep0003Path, "w", encoding="utf-8") as objOrgTableStep0003File:
                 objOrgTableWriter = csv.writer(
-                    objOrgTableTsvFile,
+                    objOrgTableStep0003File,
                     delimiter="\t",
                     lineterminator="\n",
                 )
@@ -230,6 +252,25 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
                             pszProjectCode,
                         )
                     objOrgTableWriter.writerow(objRow)
+            # ●●の処理ここまで
+        with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
+            objOrgTableStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
+            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+                objOrgTableTsvWriter = csv.writer(
+                    objOrgTableTsvFile,
+                    delimiter="\t",
+                    lineterminator="\n",
+                )
+                for objRow in objOrgTableStep0003Reader:
+                    if len(objRow) >= 2:
+                        objName = objRow[1]
+                        objMatchP: re.Match[str] | None = re.match(r"^(P\d{5})_\1_(.*)$", objName)
+                        objMatchOther: re.Match[str] | None = re.match(r"^([A-Z]\d{3})_\1_(.*)$", objName)
+                        if objMatchP is not None:
+                            objRow[1] = f"{objMatchP.group(1)}_{objMatchP.group(2)}"
+                        elif objMatchOther is not None:
+                            objRow[1] = f"{objMatchOther.group(1)}_{objMatchOther.group(2)}"
+                    objOrgTableTsvWriter.writerow(objRow)
     else:
         pszOrgTableError = f"Error: 組織表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
