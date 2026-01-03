@@ -171,21 +171,20 @@ def add_project_code_prefix_step0003(
     pszProjectName: str,
     pszProjectCode: str,
 ) -> str:
-    if pszProjectCode != "":
-        pszCodePrefix: str = pszProjectCode.split("_", 1)[0]
-        if pszProjectName.startswith(pszCodePrefix + "_"):
-            return pszProjectName
-    if pszProjectName == "":
+    # 3) PJ コードが空なら何もしない
+    if not pszProjectCode:
+        return pszProjectName
+    # 1) PJ 名称が空なら、PJ コードをそのまま返す
+    if not pszProjectName:
         return pszProjectCode
-    if re.match(r"^[A-Z]", pszProjectName) and re.match(
-        r"^(P\d{5}|[A-OQ-Z]\d{3})_",
-        pszProjectName,
-    ):
+    # 2) 既にコード付与済みか判定 (先頭が英大文字 + 数字複数 + "_" で始まる場合はそのまま)
+    if re.match(r"^[A-Z]\d+_", pszProjectName):
         return pszProjectName
-    if pszProjectCode == "":
+    # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する
+    pszCodePrefix = pszProjectCode.split("_", 1)[0] + "_"
+    if pszProjectName.startswith(pszCodePrefix):
         return pszProjectName
-    pszCodePrefix = pszProjectCode.split("_", 1)[0]
-    return pszCodePrefix + "_" + pszProjectName
+    return pszCodePrefix + pszProjectName
 
 
 def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
@@ -224,10 +223,11 @@ def convert_org_table_tsv(objBaseDirectoryPath: Path) -> None:
             # add_project_code_prefix_step0003 の「コード付加」判定を行い、結果を
             # 組織表.tsv に書き出す。
             # 判定条件 (add_project_code_prefix_step0003):
-            # 1) PJ 名称が空なら、同じ行の 3 列目(PJ コード) を 2 列目にも書き込む。
-            # 2) PJ 名称が半角大文字英字で始まり、かつ P%05d_ または [A-OQ-Z]%03d_ なら何もしない。
-            # 3) PJ コードが空なら何もしない。
-            # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する。
+            # 1) PJ コードが空なら何もしない。
+            # 2) PJ 名称が空なら、PJ コードを 2 列目に書き込む。
+            # 3) PJ 名称が「英大文字 + 数字複数 + '_'」で始まっていれば付加済みとみなす。
+            # 4) それ以外は、PJ コードの先頭(_ より前)を「コード_」として付加する
+            #    （既に同じ接頭辞で始まっていれば付け足さない）。
             # 「3 列目が存在する場合のみ」という条件は廃止し、各行で 2 列目に対して
             # 無条件でコード付加判定を行う。
             objStep0002Reader = csv.reader(objStep0002File, delimiter="\t")
