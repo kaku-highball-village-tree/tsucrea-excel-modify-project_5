@@ -171,6 +171,10 @@ def add_project_code_prefix_step0003(
     pszProjectName: str,
     pszProjectCode: str,
 ) -> str:
+    if pszProjectCode != "":
+        pszCodePrefix: str = pszProjectCode.split("_", 1)[0]
+        if pszProjectName.startswith(pszCodePrefix + "_"):
+            return pszProjectName
     if pszProjectName == "":
         return pszProjectCode
     if re.match(r"^[A-Z]", pszProjectName) and re.match(
@@ -180,7 +184,7 @@ def add_project_code_prefix_step0003(
         return pszProjectName
     if pszProjectCode == "":
         return pszProjectName
-    pszCodePrefix: str = pszProjectCode.split("_", 1)[0]
+    pszCodePrefix = pszProjectCode.split("_", 1)[0]
     return pszCodePrefix + "_" + pszProjectName
 
 
