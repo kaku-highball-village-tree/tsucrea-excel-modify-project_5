@@ -2314,12 +2314,16 @@ def make_sheet789_from_sheet4(
     elif "氏名" in objSheet4Columns:
         pszNameColumn = "氏名"
 
-    # 計上カンパニー列の候補を探す
+    # 計上カンパニー列の候補を探す（旧: 所属グループ名）
     pszCompanyColumn: str = ""
     if "計上カンパニー名" in objSheet4Columns:
         pszCompanyColumn = "計上カンパニー名"
     elif "計上カンパニー" in objSheet4Columns:
         pszCompanyColumn = "計上カンパニー"
+    elif "所属グループ名" in objSheet4Columns:
+        pszCompanyColumn = "所属グループ名"
+    elif "所属グループ" in objSheet4Columns:
+        pszCompanyColumn = "所属グループ"
 
     # 工数列を秒数に変した補助列を追加
     try:
