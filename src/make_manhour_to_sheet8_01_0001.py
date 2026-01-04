@@ -3708,7 +3708,6 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
     objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0003.tsv")
     objOrgTableStep0005Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0005.tsv")
-    objOrgTableStep0006Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0006.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
@@ -3750,44 +3749,6 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                         while objRow and objRow[-1] == "":
                             objRow.pop()
                         objStep0005Writer.writerow(objRow)
-        if os.path.exists(pszSheet10GroupTsvPath) and objOrgTableStep0005Path.exists():
-            objPrefixPattern: re.Pattern[str] = re.compile(r"^(P\d{5}_|[A-OQ-Z]\d{3}_)")
-
-            def extract_prefix_and_suffix(pszName: str) -> tuple[str, str]:
-                objMatch = objPrefixPattern.match(pszName)
-                if objMatch is None:
-                    return "", pszName
-                pszPrefix = objMatch.group(1)
-                return pszPrefix, pszName[len(pszPrefix) :]
-
-            objStep07PrefixToName: Dict[str, str] = {}
-            with open(pszSheet10GroupTsvPath, "r", encoding="utf-8") as objStep07File:
-                objStep07Reader = csv.reader(objStep07File, delimiter="\t")
-                for objRow in objStep07Reader:
-                    if len(objRow) == 0:
-                        continue
-                    pszNameStep07: str = objRow[0].strip()
-                    if pszNameStep07 in ["本部", "その他"]:
-                        continue
-                    pszPrefixStep07, _ = extract_prefix_and_suffix(pszNameStep07)
-                    if pszPrefixStep07 and pszPrefixStep07 not in objStep07PrefixToName:
-                        objStep07PrefixToName[pszPrefixStep07] = pszNameStep07
-
-            with open(objOrgTableStep0005Path, "r", encoding="utf-8") as objStep0005File:
-                objStep0005Reader = csv.reader(objStep0005File, delimiter="\t")
-                with open(objOrgTableStep0006Path, "w", encoding="utf-8") as objStep0006File:
-                    objStep0006Writer = csv.writer(objStep0006File, delimiter="\t", lineterminator="\n")
-                    for objRow in objStep0005Reader:
-                        if len(objRow) > 1:
-                            pszNameStep0005: str = objRow[1].strip()
-                            if pszNameStep0005 not in ["本部", "その他"]:
-                                pszPrefixStep0005, pszSuffixStep0005 = extract_prefix_and_suffix(pszNameStep0005)
-                                if pszPrefixStep0005 and pszPrefixStep0005 in objStep07PrefixToName:
-                                    pszNameStep07: str = objStep07PrefixToName[pszPrefixStep0005]
-                                    _, pszSuffixStep07 = extract_prefix_and_suffix(pszNameStep07)
-                                    if pszSuffixStep0005 != pszSuffixStep07:
-                                        objRow[1] = pszNameStep07
-                        objStep0006Writer.writerow(objRow)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
@@ -3876,6 +3837,44 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             if len(objColumns) > 2:
                 pszManhour = objColumns[2]
             objSheet10GroupRows.append((pszProjectName, pszGroupName, pszManhour))
+
+    objPrefixPatternStep06: re.Pattern[str] = re.compile(r"^(P\d{5}_|[A-OQ-Z]\d{3}_)")
+
+    def extract_prefix_and_suffix_step06(pszName: str) -> tuple[str, str]:
+        objMatch = objPrefixPatternStep06.match(pszName)
+        if objMatch is None:
+            return "", pszName
+        pszPrefix = objMatch.group(1)
+        return pszPrefix, pszName[len(pszPrefix) :]
+
+    objStep07PrefixToName: Dict[str, str] = {}
+    for pszProjectName, _, _ in objSheet10GroupRows:
+        pszNameStep07: str = pszProjectName.strip()
+        if pszNameStep07 in ["本部", "その他"] or pszNameStep07 == "":
+            continue
+        pszPrefixStep07, _ = extract_prefix_and_suffix_step06(pszNameStep07)
+        if pszPrefixStep07 and pszPrefixStep07 not in objStep07PrefixToName:
+            objStep07PrefixToName[pszPrefixStep07] = pszNameStep07
+
+    objOrgTableStep0006DatedPath: Path = objOrgTableCsvPath.with_name(
+        f"管轄PJ表_step0006_{iFileYear}年{iFileMonth:02d}月.tsv"
+    )
+    if objOrgTableStep0005Path.exists():
+        with open(objOrgTableStep0005Path, "r", encoding="utf-8") as objStep0005File:
+            objStep0005Reader = csv.reader(objStep0005File, delimiter="\t")
+            with open(objOrgTableStep0006DatedPath, "w", encoding="utf-8") as objStep0006File:
+                objStep0006Writer = csv.writer(objStep0006File, delimiter="\t", lineterminator="\n")
+                for objRow in objStep0005Reader:
+                    if len(objRow) > 1:
+                        pszNameStep0005: str = objRow[1].strip()
+                        if pszNameStep0005 not in ["本部", "その他"]:
+                            pszPrefixStep0005, pszSuffixStep0005 = extract_prefix_and_suffix_step06(pszNameStep0005)
+                            if pszPrefixStep0005 and pszPrefixStep0005 in objStep07PrefixToName:
+                                pszNameStep07: str = objStep07PrefixToName[pszPrefixStep0005]
+                                _, pszSuffixStep07 = extract_prefix_and_suffix_step06(pszNameStep07)
+                                if pszSuffixStep0005 != pszSuffixStep07:
+                                    objRow[1] = pszNameStep07
+                    objStep0006Writer.writerow(objRow)
 
     #
     # 3. 集計（プロジェクト別、グループ別）
