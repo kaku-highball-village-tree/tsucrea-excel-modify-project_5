@@ -2314,12 +2314,16 @@ def make_sheet789_from_sheet4(
     elif "氏名" in objSheet4Columns:
         pszNameColumn = "氏名"
 
-    # 所属グループ列の候補を探す
-    pszGroupColumn: str = ""
-    if "所属グループ名" in objSheet4Columns:
-        pszGroupColumn = "所属グループ名"
+    # 計上カンパニー列の候補を探す（旧: 所属グループ名）
+    pszCompanyColumn: str = ""
+    if "計上カンパニー名" in objSheet4Columns:
+        pszCompanyColumn = "計上カンパニー名"
+    elif "計上カンパニー" in objSheet4Columns:
+        pszCompanyColumn = "計上カンパニー"
+    elif "所属グループ名" in objSheet4Columns:
+        pszCompanyColumn = "所属グループ名"
     elif "所属グループ" in objSheet4Columns:
-        pszGroupColumn = "所属グループ"
+        pszCompanyColumn = "所属グループ"
 
     # 工数列を秒数に変した補助列を追加
     try:
@@ -2556,14 +2560,14 @@ def make_sheet789_from_sheet4(
                     iTotalSeconds = 0
 
                 pszTimeTotal: str = convert_seconds_to_time_string(iTotalSeconds)
-                pszGroupName: str = ""
-                if pszGroupColumn != "":
+                pszCompanyName: str = ""
+                if pszCompanyColumn != "":
                     try:
-                        objGroupSeries = objDataFrameSubProject[pszGroupColumn].dropna()
-                        if not objGroupSeries.empty:
-                            pszGroupName = str(objGroupSeries.iloc[0])
+                        objCompanySeries = objDataFrameSubProject[pszCompanyColumn].dropna()
+                        if not objCompanySeries.empty:
+                            pszCompanyName = str(objCompanySeries.iloc[0])
                     except Exception:
-                        pszGroupName = ""
+                        pszCompanyName = ""
 
                 # スタッフコードは各行すべてに出力
                 pszStaffCodeForRow: str = pszStaffCode
@@ -2583,9 +2587,9 @@ def make_sheet789_from_sheet4(
                     [pszStaffNameForRow, pszProjectNameFromSheet6, pszStaffCodeForRow, pszTimeTotal],
                 )
 
-                # Sheet10 用の 1 行（所属グループ列を追加）
+                # Sheet10 用の 1 行（計上カンパニー列を追加）
                 objListOutputRowsSheet10.append(
-                    [pszProjectNameFromSheet6, pszGroupName, pszStaffCodeForRow, pszTimeTotal],
+                    [pszProjectNameFromSheet6, pszCompanyName, pszStaffCodeForRow, pszTimeTotal],
                 )
 
                 iRowIndexWithinStaff += 1
@@ -3538,7 +3542,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     # (7) 工数_yyyy年mm月_step06_プロジェクト_タスク_工数.tsv
     #     工数_yyyy年mm月_step06_旧版_スタッフ別_プロジェクト_タスク_工数.tsv
     #     工数_yyyy年mm月_step06_旧版_氏名_スタッフコード.tsv
-    #     工数_yyyy年mm月_step06_プロジェクト_所属グループ名_タスク_工数.tsv
+    #     工数_yyyy年mm月_step06_プロジェクト_計上カンパニー名_タスク_工数.tsv
     objModuleMakeSheet789: Dict[str, Any] = create_module_from_source(
         "make_sheet789_from_sheet4",
         pszSource_make_sheet789_from_sheet4_py,
@@ -3567,13 +3571,13 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step06_旧版_氏名_スタッフコード.tsv"
     )
-    pszSheet10StaffGroupTsvPath: str = str(
+    pszSheet10StaffCompanyTsvPath: str = str(
         objBaseDirectoryPath
-        / f"工数_{iFileYear}年{iFileMonth:02d}月_step06_プロジェクト_スタッフ所属グループ名_タスク_工数.tsv"
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step06_プロジェクト_スタッフ計上カンパニー名_タスク_工数.tsv"
     )
-    pszSheet10GroupTaskTsvPath: str = str(
+    pszSheet10CompanyTaskTsvPath: str = str(
         objBaseDirectoryPath
-        / f"工数_{iFileYear}年{iFileMonth:02d}月_step06_プロジェクト_所属グループ名_タスク_工数.tsv"
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step06_プロジェクト_計上カンパニー名_タスク_工数.tsv"
     )
     objModuleMakeSheet789["make_sheet789_from_sheet4"](
         pszSheet4TsvPath,
@@ -3586,10 +3590,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         os.replace(pszSheet8DefaultTsvPath, pszSheet8TsvPath)
     if pszSheet9DefaultTsvPath != pszSheet9TsvPath:
         os.replace(pszSheet9DefaultTsvPath, pszSheet9TsvPath)
-    if pszSheet10DefaultTsvPath != pszSheet10StaffGroupTsvPath:
-        os.replace(pszSheet10DefaultTsvPath, pszSheet10StaffGroupTsvPath)
+    if pszSheet10DefaultTsvPath != pszSheet10StaffCompanyTsvPath:
+        os.replace(pszSheet10DefaultTsvPath, pszSheet10StaffCompanyTsvPath)
 
-    def normalize_group_name_sheet10(pszGroupName: str) -> str:
+    def normalize_company_name_sheet10(pszCompanyName: str) -> str:
         objReplaceTargets: List[Tuple[str, str]] = [
             ("本部", "本部"),
             ("事業開発", "事業開発"),
@@ -3605,50 +3609,50 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             ("第4インキュ", "第四インキュ"),
         ]
         for pszPrefix, pszReplacement in objReplaceTargets:
-            if pszGroupName.startswith(pszPrefix):
+            if pszCompanyName.startswith(pszPrefix):
                 return pszReplacement
-        return pszGroupName
+        return pszCompanyName
 
-    with open(pszSheet10StaffGroupTsvPath, "r", encoding="utf-8") as objSheet10GroupFile:
-        with open(pszSheet10GroupTaskTsvPath, "w", encoding="utf-8") as objSheet10GroupOutputFile:
-            for pszLine in objSheet10GroupFile:
+    with open(pszSheet10StaffCompanyTsvPath, "r", encoding="utf-8") as objSheet10CompanyFile:
+        with open(pszSheet10CompanyTaskTsvPath, "w", encoding="utf-8") as objSheet10CompanyOutputFile:
+            for pszLine in objSheet10CompanyFile:
                 pszLineContent = pszLine.rstrip("\n")
                 if pszLineContent == "":
-                    objSheet10GroupOutputFile.write("\n")
+                    objSheet10CompanyOutputFile.write("\n")
                     continue
                 objColumns = pszLineContent.split("\t")
                 if len(objColumns) > 1:
-                    objColumns[1] = normalize_group_name_sheet10(objColumns[1])
-                objSheet10GroupOutputFile.write("\t".join(objColumns) + "\n")
+                    objColumns[1] = normalize_company_name_sheet10(objColumns[1])
+                objSheet10CompanyOutputFile.write("\t".join(objColumns) + "\n")
 
     # (8) 工数_yyyy年mm月_step07_計算前_プロジェクト_工数.tsv
-    #     工数_yyyy年mm月_step07_計算前_プロジェクト_所属グループ名_工数.tsv
+    #     工数_yyyy年mm月_step07_計算前_プロジェクト_計上カンパニー名_工数.tsv
     #     工数_yyyy年mm月_step08_合計_プロジェクト_工数.tsv
-    #     工数_yyyy年mm月_step08_合計_プロジェクト_所属グループ名_工数.tsv
+    #     工数_yyyy年mm月_step08_合計_プロジェクト_計上カンパニー名_工数.tsv
     #     工数_yyyy年mm月_step09_昇順_合計_プロジェクト_工数.tsv
     pszSheet10ProjectTsvPath: str = str(
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step07_計算前_プロジェクト_工数.tsv"
     )
-    pszSheet10GroupTsvPath: str = str(
+    pszSheet10CompanyTsvPath: str = str(
         objBaseDirectoryPath
-        / f"工数_{iFileYear}年{iFileMonth:02d}月_step07_計算前_プロジェクト_所属グループ名_工数.tsv"
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step07_計算前_プロジェクト_計上カンパニー名_工数.tsv"
     )
     pszSheet11TsvPath: str = str(
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step08_合計_プロジェクト_工数.tsv"
     )
-    pszSheet11GroupTsvPath: str = str(
+    pszSheet11CompanyTsvPath: str = str(
         objBaseDirectoryPath
-        / f"工数_{iFileYear}年{iFileMonth:02d}月_step08_合計_プロジェクト_所属グループ名_工数.tsv"
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step08_合計_プロジェクト_計上カンパニー名_工数.tsv"
     )
     pszSheet12TsvPath: str = str(
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_工数.tsv"
     )
-    pszSheet12GroupTsvPath: str = str(
+    pszSheet12CompanyTsvPath: str = str(
         objBaseDirectoryPath
-        / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_所属グループ名_工数.tsv"
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_計上カンパニー名_工数.tsv"
     )
 
     def is_blank_sheet10(value: str | None) -> bool:
@@ -3767,8 +3771,8 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     #
     with open(pszSheet7TsvPath, "r", encoding="utf-8") as objSheet7File:
         objSheet7Lines: List[str] = objSheet7File.readlines()
-    with open(pszSheet10GroupTaskTsvPath, "r", encoding="utf-8") as objSheet10GroupFile:
-        objSheet10GroupLines: List[str] = objSheet10GroupFile.readlines()
+    with open(pszSheet10CompanyTaskTsvPath, "r", encoding="utf-8") as objSheet10CompanyFile:
+        objSheet10CompanyLines: List[str] = objSheet10CompanyFile.readlines()
 
     objSheet10Rows: List[Tuple[str, str]] = []
     with open(pszSheet10ProjectTsvPath, "w", encoding="utf-8") as objSheet10File:
@@ -3795,21 +3799,21 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             objSheet10File.write(pszNormalizedName + "\t" + pszManhour + "\n")
             objSheet10Rows.append((pszNormalizedName, pszManhour))
 
-    with open(pszSheet10GroupTsvPath, "w", encoding="utf-8") as objSheet10GroupFile:
-        for pszLine in objSheet10GroupLines:
+    with open(pszSheet10CompanyTsvPath, "w", encoding="utf-8") as objSheet10CompanyFile:
+        for pszLine in objSheet10CompanyLines:
             pszLineContent = pszLine.rstrip("\n")
             if pszLineContent == "":
-                objSheet10GroupFile.write("\t\t\n")
+                objSheet10CompanyFile.write("\t\t\n")
                 continue
             pszLineContent = preprocess_line_content_sheet10(pszLineContent)
             objColumns = pszLineContent.split("\t")
             pszProjectName = ""
-            pszGroupName = ""
+            pszCompanyName = ""
             pszManhour = ""
             if len(objColumns) > 0:
                 pszProjectName = objColumns[0]
             if len(objColumns) > 1:
-                pszGroupName = objColumns[1]
+                pszCompanyName = objColumns[1]
             if len(objColumns) > 3:
                 pszManhour = objColumns[3]
             elif len(objColumns) > 2:
@@ -3820,27 +3824,27 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 pszNormalizedName = ""
             else:
                 pszNormalizedName = normalize_project_name_sheet10(pszProjectName)
-            objSheet10GroupFile.write(
-                pszNormalizedName + "\t" + pszGroupName + "\t" + pszManhour + "\n",
+            objSheet10CompanyFile.write(
+                pszNormalizedName + "\t" + pszCompanyName + "\t" + pszManhour + "\n",
             )
 
-    objSheet10GroupRows: List[Tuple[str, str, str]] = []
-    with open(pszSheet10GroupTsvPath, "r", encoding="utf-8") as objSheet10GroupFile:
-        for pszLine in objSheet10GroupFile:
+    objSheet10CompanyRows: List[Tuple[str, str, str]] = []
+    with open(pszSheet10CompanyTsvPath, "r", encoding="utf-8") as objSheet10CompanyFile:
+        for pszLine in objSheet10CompanyFile:
             pszLineContent = pszLine.rstrip("\n")
             if pszLineContent == "":
                 continue
             objColumns = pszLineContent.split("\t")
             pszProjectName = ""
-            pszGroupName = ""
+            pszCompanyName = ""
             pszManhour = ""
             if len(objColumns) > 0:
                 pszProjectName = objColumns[0]
             if len(objColumns) > 1:
-                pszGroupName = objColumns[1]
+                pszCompanyName = objColumns[1]
             if len(objColumns) > 2:
                 pszManhour = objColumns[2]
-            objSheet10GroupRows.append((pszProjectName, pszGroupName, pszManhour))
+            objSheet10CompanyRows.append((pszProjectName, pszCompanyName, pszManhour))
 
     objPrefixPatternStep06: re.Pattern[str] = re.compile(r"^(P\d{5}_|[A-OQ-Z]\d{3}_)")
 
@@ -3852,7 +3856,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         return pszPrefix, pszName[len(pszPrefix) :]
 
     objStep07PrefixToName: Dict[str, str] = {}
-    for pszProjectName, _, _ in objSheet10GroupRows:
+    for pszProjectName, _, _ in objSheet10CompanyRows:
         pszNameStep07: str = pszProjectName.strip()
         if pszNameStep07 in ["本部", "その他"] or pszNameStep07 == "":
             continue
@@ -3881,7 +3885,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     objStep0006Writer.writerow(objRow)
 
     #
-    # 3. 集計（プロジェクト別、グループ別）
+    # 3. 集計（プロジェクト別、カンパニー別）
     #
     objAggregatedSeconds: Dict[str, int] = {}
     objAggregatedOrder: List[str] = []
@@ -3903,20 +3907,20 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             objSheet11File.write(pszProjectName + "\t" + pszTotalManhour + "\n")
             objSheet11Rows.append((pszProjectName, pszTotalManhour))
 
-    objAggregatedGroupSeconds: Dict[str, int] = {}
-    objAggregatedGroupOrder: List[str] = []
-    objAggregatedGroupNames: Dict[str, List[str]] = {}
-    for pszProjectName, pszGroupName, pszManhour in objSheet10GroupRows:
-        if pszProjectName == "" and pszGroupName == "" and pszManhour == "":
+    objAggregatedCompanySeconds: Dict[str, int] = {}
+    objAggregatedCompanyOrder: List[str] = []
+    objAggregatedCompanyNames: Dict[str, List[str]] = {}
+    for pszProjectName, pszCompanyName, pszManhour in objSheet10CompanyRows:
+        if pszProjectName == "" and pszCompanyName == "" and pszManhour == "":
             continue
         iSeconds = parse_manhour_to_seconds_sheet11(pszManhour)
-        if pszProjectName not in objAggregatedGroupSeconds:
-            objAggregatedGroupSeconds[pszProjectName] = 0
-            objAggregatedGroupOrder.append(pszProjectName)
-            objAggregatedGroupNames[pszProjectName] = []
-        if pszGroupName not in objAggregatedGroupNames[pszProjectName]:
-            objAggregatedGroupNames[pszProjectName].append(pszGroupName)
-        objAggregatedGroupSeconds[pszProjectName] += iSeconds
+        if pszProjectName not in objAggregatedCompanySeconds:
+            objAggregatedCompanySeconds[pszProjectName] = 0
+            objAggregatedCompanyOrder.append(pszProjectName)
+            objAggregatedCompanyNames[pszProjectName] = []
+        if pszCompanyName not in objAggregatedCompanyNames[pszProjectName]:
+            objAggregatedCompanyNames[pszProjectName].append(pszCompanyName)
+        objAggregatedCompanySeconds[pszProjectName] += iSeconds
 
     objIncubationPriority: List[str] = [
         "第一インキュ",
@@ -3951,13 +3955,13 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     objHoldProjectLines: List[str] = []
 
     #
-    # 5. 所属グループ名の決定ロジック（select_group_name_step08）
+    # 5. 計上カンパニー名の決定ロジック（select_company_name_step08）
     #
-    def select_group_name_step08(
+    def select_company_name_step08(
         pszProjectName: str,
-        objGroupNames: List[str],
+        objCompanyNames: List[str],
     ) -> str:
-        if not objGroupNames:
+        if not objCompanyNames:
             return ""
         pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
         if pszProjectCodePrefix in objOrgTableBillingMap:
@@ -3967,47 +3971,47 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             return "本部"
         if pszProjectPrefix in ["J", "P"]:
             objIncubations: List[str] = [
-                name for name in objGroupNames if name in objIncubationPrioritySet
+                name for name in objCompanyNames if name in objIncubationPrioritySet
             ]
             objIncubations.sort(
                 key=lambda name: objIncubationPriority.index(name),
             )
             if len(objIncubations) > 1:
                 objHoldProjectLines.append(
-                    f"{pszProjectName} → {' / '.join(objGroupNames)}",
+                    f"{pszProjectName} → {' / '.join(objCompanyNames)}",
                 )
             if objIncubations:
                 return objIncubations[0]
-        return objGroupNames[0]
+        return objCompanyNames[0]
 
     #
-    # 6. グループ別合計TSVの出力
+    # 6. カンパニー別合計TSVの出力
     #
-    with open(pszSheet11GroupTsvPath, "w", encoding="utf-8") as objSheet11GroupFile:
-        objSheet11GroupRows: List[Tuple[str, str, str]] = []
-        for pszProjectName in objAggregatedGroupOrder:
+    with open(pszSheet11CompanyTsvPath, "w", encoding="utf-8") as objSheet11CompanyFile:
+        objSheet11CompanyRows: List[Tuple[str, str, str]] = []
+        for pszProjectName in objAggregatedCompanyOrder:
             pszTotalManhour = format_seconds_to_manhour_sheet11(
-                objAggregatedGroupSeconds[pszProjectName],
+                objAggregatedCompanySeconds[pszProjectName],
             )
-            pszGroupName = select_group_name_step08(
+            pszCompanyName = select_company_name_step08(
                 pszProjectName,
-                objAggregatedGroupNames.get(pszProjectName, []),
+                objAggregatedCompanyNames.get(pszProjectName, []),
             )
-            objSheet11GroupFile.write(
-                pszProjectName + "\t" + pszGroupName + "\t" + pszTotalManhour + "\n",
+            objSheet11CompanyFile.write(
+                pszProjectName + "\t" + pszCompanyName + "\t" + pszTotalManhour + "\n",
             )
-            objSheet11GroupRows.append((pszProjectName, pszGroupName, pszTotalManhour))
+            objSheet11CompanyRows.append((pszProjectName, pszCompanyName, pszTotalManhour))
 
     #
     # 7. インキュ重複プロジェクトの警告出力
     #
     if objHoldProjectLines:
         pszInputFileLine: str = f"入力ファイル名: {objInputPath.name}"
-        pszGroupTsvLine: str = f"対象TSV: {pszSheet10GroupTsvPath}"
+        pszCompanyTsvLine: str = f"対象TSV: {pszSheet10CompanyTsvPath}"
         print(pszInputFileLine)
-        print(pszGroupTsvLine)
+        print(pszCompanyTsvLine)
         write_debug_error(pszInputFileLine, objBaseDirectoryPath)
-        write_debug_error(pszGroupTsvLine, objBaseDirectoryPath)
+        write_debug_error(pszCompanyTsvLine, objBaseDirectoryPath)
         for pszLine in objHoldProjectLines:
             print(pszLine)
             write_debug_error(pszLine, objBaseDirectoryPath)
@@ -4015,7 +4019,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             "インキュがかぶっているプロジェクトがあります。\n"
             + pszInputFileLine
             + "\n"
-            + pszGroupTsvLine
+            + pszCompanyTsvLine
             + "\n"
             + "\n".join(objHoldProjectLines)
         )
@@ -4039,27 +4043,38 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         for _, objRow in objIndexedSheet11Rows:
             objSheet12File.write(objRow[0] + "\t" + objRow[1] + "\n")
 
-    objIndexedSheet11GroupRows: List[Tuple[int, Tuple[str, str, str]]] = list(enumerate(objSheet11GroupRows))
-    objIndexedSheet11GroupRows.sort(
+    objIndexedSheet11CompanyRows: List[Tuple[int, Tuple[str, str, str]]] = list(enumerate(objSheet11CompanyRows))
+    objIndexedSheet11CompanyRows.sort(
         key=lambda objItem: (
             extract_project_prefix_sheet12(objItem[1][0]),
             objItem[0],
         ),
     )
 
-    with open(pszSheet12GroupTsvPath, "w", encoding="utf-8") as objSheet12GroupFile:
-        for _, objRow in objIndexedSheet11GroupRows:
-            objSheet12GroupFile.write(objRow[0] + "\t" + objRow[1] + "\t" + objRow[2] + "\n")
+    with open(pszSheet12CompanyTsvPath, "w", encoding="utf-8") as objSheet12CompanyFile:
+        for _, objRow in objIndexedSheet11CompanyRows:
+            objSheet12CompanyFile.write(objRow[0] + "\t" + objRow[1] + "\t" + objRow[2] + "\n")
 
     pszStep10OutputPath: str = str(
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの工数.tsv"
+    )
+    pszStep10CompanyOutputPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの計上カンパニー名_工数.tsv"
     )
     with open(pszStep10OutputPath, "w", encoding="utf-8") as objStep10File:
         for _, (pszProjectName, pszTotalManhour) in objIndexedSheet11Rows:
             if str(pszProjectName).startswith(("A", "H")):
                 continue
             objStep10File.write(pszProjectName + "\t" + pszTotalManhour + "\n")
+    with open(pszStep10CompanyOutputPath, "w", encoding="utf-8") as objStep10CompanyFile:
+        for _, (pszProjectName, pszCompanyName, pszTotalManhour) in objIndexedSheet11CompanyRows:
+            if str(pszProjectName).startswith(("A", "H")):
+                continue
+            objStep10CompanyFile.write(
+                pszProjectName + "\t" + pszCompanyName + "\t" + pszTotalManhour + "\n"
+            )
 
     # Staff_List.tsv の処理は削除
 
