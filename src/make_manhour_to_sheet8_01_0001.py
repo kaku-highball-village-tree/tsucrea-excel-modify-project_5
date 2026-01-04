@@ -3863,6 +3863,115 @@ def write_step11_from_step10_only(pszStep10Path: str) -> int:
                         while objRow and objRow[-1] == "":
                             objRow.pop()
                         objStep0005Writer.writerow(objRow)
+
+
+def load_org_table_billing_map_for_step11() -> Dict[str, str]:
+    objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableBillingMapExact: Dict[str, str] = {}
+    objOrgTableBillingMapPrefix: Dict[str, str] = {}
+    if objOrgTableTsvPath.exists():
+        with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
+            objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
+            for objRow in objOrgTableReader:
+                if len(objRow) >= 4:
+                    pszProjectCodeOrg: str = objRow[2].strip()
+                    pszBillingCompany: str = objRow[3].strip()
+                    if pszProjectCodeOrg and pszBillingCompany:
+                        objOrgTableBillingMapExact.setdefault(pszProjectCodeOrg, pszBillingCompany)
+                        pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefix: str = ""
+                        if pszProjectCodePrefixMatchP is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchP.group(1)
+                        elif pszProjectCodePrefixMatchOther is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
+                        if pszProjectCodePrefix:
+                            objOrgTableBillingMapPrefix.setdefault(pszProjectCodePrefix, pszBillingCompany)
+    return {**objOrgTableBillingMapPrefix, **objOrgTableBillingMapExact}
+
+
+def write_step11_from_step10_only(pszStep10Path: str) -> int:
+    objStep10Path: Path = Path(pszStep10Path).resolve()
+    objBaseDirectoryPath: Path = objStep10Path.parent
+    objMatch: re.Match[str] | None = re.match(
+        r"工数_(\d{4})年(\d{2})月_step10_各プロジェクトの工数\.tsv$",
+        objStep10Path.name,
+    )
+    if objMatch is None:
+        print(f"Error: step10ファイル名の形式が不正です: {objStep10Path.name}")
+        return 1
+    iFileYear: int = int(objMatch.group(1))
+    iFileMonth: int = int(objMatch.group(2))
+
+    pszStep11OutputPath: Path = objBaseDirectoryPath / f"工数_{iFileYear}年{iFileMonth:02d}月_step11_各プロジェクトの計上カンパニー名_工数_カンパニーの工数.tsv"
+    objBillingMap: Dict[str, str] = load_org_table_billing_map_for_step11()
+
+    with open(objStep10Path, "r", encoding="utf-8") as objStep10File, open(
+        pszStep11OutputPath,
+        "w",
+        encoding="utf-8",
+    ) as objStep11File:
+        pszZeroManhour: str = "0:00:00"
+        for pszLine in objStep10File:
+            pszLineContent: str = pszLine.rstrip("\n")
+            if pszLineContent == "":
+                objStep11File.write("\n")
+                continue
+            objColumns: List[str] = pszLineContent.split("\t")
+            if len(objColumns) < 2:
+                print(f"Warning: 不正な行をスキップしました: {pszLineContent}")
+                continue
+            pszProjectName: str = objColumns[0]
+            pszManhour: str = objColumns[1]
+            pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
+            pszBillingCompany: str = objBillingMap.get(pszProjectCodePrefix, objBillingMap.get(pszProjectName, ""))
+
+            pszFirstIncubation: str = pszZeroManhour
+            pszSecondIncubation: str = pszZeroManhour
+            pszThirdIncubation: str = pszZeroManhour
+            pszFourthIncubation: str = pszZeroManhour
+            pszBusinessDevelopment: str = pszZeroManhour
+            bIsCompanyProject: bool = re.match(r"^C\d{3}_", str(pszProjectName)) is not None
+            if not bIsCompanyProject:
+                if pszBillingCompany == "第一インキュ":
+                    pszFirstIncubation = pszManhour
+                elif pszBillingCompany == "第二インキュ":
+                    pszSecondIncubation = pszManhour
+                elif pszBillingCompany == "第三インキュ":
+                    pszThirdIncubation = pszManhour
+                elif pszBillingCompany == "第四インキュ":
+                    pszFourthIncubation = pszManhour
+                elif pszBillingCompany == "事業開発":
+                    pszBusinessDevelopment = pszManhour
+            objStep11File.write(
+                pszProjectName
+                + "\t"
+                + pszBillingCompany
+                + "\t"
+                + pszManhour
+                + "\t"
+                + pszFirstIncubation
+                + "\t"
+                + pszSecondIncubation
+                + "\t"
+                + pszThirdIncubation
+                + "\t"
+                + pszFourthIncubation
+                + "\t"
+                + pszBusinessDevelopment
+                + "\n"
+            )
+    print(f"OK: created file {pszStep11OutputPath}")
+    return 0
+
+                    for objRow in objStep0003Reader:
+                        if len(objRow) > 1:
+                            objRow = [objRow[0]] + objRow[2:]
+                        objRow = [objCell.replace("=match'", "") for objCell in objRow]
+                        while objRow and objRow[-1] == "":
+                            objRow.pop()
+                        objStep0005Writer.writerow(objRow)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
