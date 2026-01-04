@@ -3646,6 +3646,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_工数.tsv"
     )
+    pszSheet12GroupTsvPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_所属グループ名_工数.tsv"
+    )
 
     def is_blank_sheet10(value: str | None) -> bool:
         if value is None:
@@ -3980,6 +3984,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     # 6. グループ別合計TSVの出力
     #
     with open(pszSheet11GroupTsvPath, "w", encoding="utf-8") as objSheet11GroupFile:
+        objSheet11GroupRows: List[Tuple[str, str, str]] = []
         for pszProjectName in objAggregatedGroupOrder:
             pszTotalManhour = format_seconds_to_manhour_sheet11(
                 objAggregatedGroupSeconds[pszProjectName],
@@ -3991,6 +3996,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             objSheet11GroupFile.write(
                 pszProjectName + "\t" + pszGroupName + "\t" + pszTotalManhour + "\n",
             )
+            objSheet11GroupRows.append((pszProjectName, pszGroupName, pszTotalManhour))
 
     #
     # 7. インキュ重複プロジェクトの警告出力
@@ -4032,6 +4038,18 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     with open(pszSheet12TsvPath, "w", encoding="utf-8") as objSheet12File:
         for _, objRow in objIndexedSheet11Rows:
             objSheet12File.write(objRow[0] + "\t" + objRow[1] + "\n")
+
+    objIndexedSheet11GroupRows: List[Tuple[int, Tuple[str, str, str]]] = list(enumerate(objSheet11GroupRows))
+    objIndexedSheet11GroupRows.sort(
+        key=lambda objItem: (
+            extract_project_prefix_sheet12(objItem[1][0]),
+            objItem[0],
+        ),
+    )
+
+    with open(pszSheet12GroupTsvPath, "w", encoding="utf-8") as objSheet12GroupFile:
+        for _, objRow in objIndexedSheet11GroupRows:
+            objSheet12GroupFile.write(objRow[0] + "\t" + objRow[1] + "\t" + objRow[2] + "\n")
 
     pszStep10OutputPath: str = str(
         objBaseDirectoryPath
