@@ -3759,8 +3759,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
 def load_org_table_billing_map_for_step11() -> Dict[str, str]:
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
-    objOrgTableBillingMapExact: Dict[str, str] = {}
-    objOrgTableBillingMapPrefix: Dict[str, str] = {}
+    objOrgTableBillingMap: Dict[str, str] = {}
     if objOrgTableTsvPath.exists():
         with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
             objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
@@ -3768,18 +3767,19 @@ def load_org_table_billing_map_for_step11() -> Dict[str, str]:
                 if len(objRow) >= 4:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
-                    if pszProjectCodeOrg and pszBillingCompany:
-                        objOrgTableBillingMapExact.setdefault(pszProjectCodeOrg, pszBillingCompany)
-                        pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
-                        pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
-                        pszProjectCodePrefix: str = ""
-                        if pszProjectCodePrefixMatchP is not None:
-                            pszProjectCodePrefix = pszProjectCodePrefixMatchP.group(1)
-                        elif pszProjectCodePrefixMatchOther is not None:
-                            pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
-                        if pszProjectCodePrefix:
-                            objOrgTableBillingMapPrefix.setdefault(pszProjectCodePrefix, pszBillingCompany)
-    return {**objOrgTableBillingMapPrefix, **objOrgTableBillingMapExact}
+                    if not pszProjectCodeOrg or not pszBillingCompany:
+                        continue
+                    pszBaseCode: str = pszProjectCodeOrg.split("_", 1)[0]
+                    objCandidateKeys: List[str] = [
+                        pszProjectCodeOrg,
+                        pszBaseCode,
+                        f"{pszBaseCode}_" if pszBaseCode else "",
+                        f"{pszProjectCodeOrg}_" if not pszProjectCodeOrg.endswith("_") else "",
+                    ]
+                    for pszKey in objCandidateKeys:
+                        if pszKey and pszKey not in objOrgTableBillingMap:
+                            objOrgTableBillingMap[pszKey] = pszBillingCompany
+    return objOrgTableBillingMap
 
 
 def write_step11_from_step10_only(pszStep10Path: str) -> int:
@@ -3798,6 +3798,19 @@ def write_step11_from_step10_only(pszStep10Path: str) -> int:
     pszStep11OutputPath: Path = objBaseDirectoryPath / f"工数_{iFileYear}年{iFileMonth:02d}月_step11_各プロジェクトの計上カンパニー名_工数_カンパニーの工数.tsv"
     objBillingMap: Dict[str, str] = load_org_table_billing_map_for_step11()
 
+    def resolve_billing_company(pszProjectName: str) -> str:
+        pszProjectNameTrimmed: str = pszProjectName.strip()
+        if pszProjectNameTrimmed in objBillingMap:
+            return objBillingMap[pszProjectNameTrimmed]
+        objCodeMatch: re.Match[str] | None = re.match(r"^(P\d{5}|[A-OQ-Z]\d{3})_", pszProjectNameTrimmed)
+        if objCodeMatch is not None:
+            pszProjectCode: str = objCodeMatch.group(1)
+            if f"{pszProjectCode}_" in objBillingMap:
+                return objBillingMap[f"{pszProjectCode}_"]
+            if pszProjectCode in objBillingMap:
+                return objBillingMap[pszProjectCode]
+        return ""
+
     with open(objStep10Path, "r", encoding="utf-8") as objStep10File, open(
         pszStep11OutputPath,
         "w",
@@ -3815,8 +3828,7 @@ def write_step11_from_step10_only(pszStep10Path: str) -> int:
                 continue
             pszProjectName: str = objColumns[0]
             pszManhour: str = objColumns[1]
-            pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
-            pszBillingCompany: str = objBillingMap.get(pszProjectCodePrefix, objBillingMap.get(pszProjectName, ""))
+            pszBillingCompany: str = resolve_billing_company(pszProjectName)
 
             pszFirstIncubation: str = pszZeroManhour
             pszSecondIncubation: str = pszZeroManhour
@@ -3868,8 +3880,7 @@ def write_step11_from_step10_only(pszStep10Path: str) -> int:
 def load_org_table_billing_map_for_step11() -> Dict[str, str]:
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
-    objOrgTableBillingMapExact: Dict[str, str] = {}
-    objOrgTableBillingMapPrefix: Dict[str, str] = {}
+    objOrgTableBillingMap: Dict[str, str] = {}
     if objOrgTableTsvPath.exists():
         with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
             objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
@@ -3877,18 +3888,19 @@ def load_org_table_billing_map_for_step11() -> Dict[str, str]:
                 if len(objRow) >= 4:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
-                    if pszProjectCodeOrg and pszBillingCompany:
-                        objOrgTableBillingMapExact.setdefault(pszProjectCodeOrg, pszBillingCompany)
-                        pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
-                        pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
-                        pszProjectCodePrefix: str = ""
-                        if pszProjectCodePrefixMatchP is not None:
-                            pszProjectCodePrefix = pszProjectCodePrefixMatchP.group(1)
-                        elif pszProjectCodePrefixMatchOther is not None:
-                            pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
-                        if pszProjectCodePrefix:
-                            objOrgTableBillingMapPrefix.setdefault(pszProjectCodePrefix, pszBillingCompany)
-    return {**objOrgTableBillingMapPrefix, **objOrgTableBillingMapExact}
+                    if not pszProjectCodeOrg or not pszBillingCompany:
+                        continue
+                    pszBaseCode: str = pszProjectCodeOrg.split("_", 1)[0]
+                    objCandidateKeys: List[str] = [
+                        pszProjectCodeOrg,
+                        pszBaseCode,
+                        f"{pszBaseCode}_" if pszBaseCode else "",
+                        f"{pszProjectCodeOrg}_" if not pszProjectCodeOrg.endswith("_") else "",
+                    ]
+                    for pszKey in objCandidateKeys:
+                        if pszKey and pszKey not in objOrgTableBillingMap:
+                            objOrgTableBillingMap[pszKey] = pszBillingCompany
+    return objOrgTableBillingMap
 
 
 def write_step11_from_step10_only(pszStep10Path: str) -> int:
@@ -3907,6 +3919,19 @@ def write_step11_from_step10_only(pszStep10Path: str) -> int:
     pszStep11OutputPath: Path = objBaseDirectoryPath / f"工数_{iFileYear}年{iFileMonth:02d}月_step11_各プロジェクトの計上カンパニー名_工数_カンパニーの工数.tsv"
     objBillingMap: Dict[str, str] = load_org_table_billing_map_for_step11()
 
+    def resolve_billing_company(pszProjectName: str) -> str:
+        pszProjectNameTrimmed: str = pszProjectName.strip()
+        if pszProjectNameTrimmed in objBillingMap:
+            return objBillingMap[pszProjectNameTrimmed]
+        objCodeMatch: re.Match[str] | None = re.match(r"^(P\d{5}|[A-OQ-Z]\d{3})_", pszProjectNameTrimmed)
+        if objCodeMatch is not None:
+            pszProjectCode: str = objCodeMatch.group(1)
+            if f"{pszProjectCode}_" in objBillingMap:
+                return objBillingMap[f"{pszProjectCode}_"]
+            if pszProjectCode in objBillingMap:
+                return objBillingMap[pszProjectCode]
+        return ""
+
     with open(objStep10Path, "r", encoding="utf-8") as objStep10File, open(
         pszStep11OutputPath,
         "w",
@@ -3924,8 +3949,7 @@ def write_step11_from_step10_only(pszStep10Path: str) -> int:
                 continue
             pszProjectName: str = objColumns[0]
             pszManhour: str = objColumns[1]
-            pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
-            pszBillingCompany: str = objBillingMap.get(pszProjectCodePrefix, objBillingMap.get(pszProjectName, ""))
+            pszBillingCompany: str = resolve_billing_company(pszProjectName)
 
             pszFirstIncubation: str = pszZeroManhour
             pszSecondIncubation: str = pszZeroManhour
