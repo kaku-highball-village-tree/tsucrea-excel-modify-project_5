@@ -4132,14 +4132,16 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             pszSecondIncubation: str = pszZeroManhour
             pszThirdIncubation: str = pszZeroManhour
             pszFourthIncubation: str = pszZeroManhour
-            if pszCompanyName == "第一インキュ":
-                pszFirstIncubation = pszTotalManhour
-            elif pszCompanyName == "第二インキュ":
-                pszSecondIncubation = pszTotalManhour
-            elif pszCompanyName == "第三インキュ":
-                pszThirdIncubation = pszTotalManhour
-            elif pszCompanyName == "第四インキュ":
-                pszFourthIncubation = pszTotalManhour
+            bIsCompanyProject: bool = re.match(r"^C\d{3}_", str(pszProjectName)) is not None
+            if not bIsCompanyProject:
+                if pszCompanyName == "第一インキュ":
+                    pszFirstIncubation = pszTotalManhour
+                elif pszCompanyName == "第二インキュ":
+                    pszSecondIncubation = pszTotalManhour
+                elif pszCompanyName == "第三インキュ":
+                    pszThirdIncubation = pszTotalManhour
+                elif pszCompanyName == "第四インキュ":
+                    pszFourthIncubation = pszTotalManhour
             objStep11CompanyFile.write(
                 pszProjectName
                 + "\t"
