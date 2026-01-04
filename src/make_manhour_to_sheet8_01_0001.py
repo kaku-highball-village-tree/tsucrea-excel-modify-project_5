@@ -3654,6 +3654,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_計上カンパニー名_工数.tsv"
     )
+    pszSheet12CompanyGroupTsvPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_計上カンパニー名_計上グループ_工数.tsv"
+    )
 
     def is_blank_sheet10(value: str | None) -> bool:
         if value is None:
@@ -3933,6 +3937,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     # 4. 計上カンパニーのマッピング読み込み
     #
     objOrgTableBillingMap: Dict[str, str] = {}
+    objOrgTableGroupMap: Dict[str, str] = {}
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
     if objOrgTableTsvPath.exists():
         with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
@@ -3941,7 +3946,8 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 if len(objRow) >= 4:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
-                    if pszProjectCodeOrg and pszBillingCompany:
+                    pszBillingGroup: str = objRow[4].strip() if len(objRow) >= 5 else ""
+                    if pszProjectCodeOrg and (pszBillingCompany or pszBillingGroup):
                         pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
                         pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
                         pszProjectCodePrefix: str = ""
@@ -3950,8 +3956,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                         elif pszProjectCodePrefixMatchOther is not None:
                             pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
                         if pszProjectCodePrefix:
-                            if pszProjectCodePrefix not in objOrgTableBillingMap:
+                            if pszBillingCompany and pszProjectCodePrefix not in objOrgTableBillingMap:
                                 objOrgTableBillingMap[pszProjectCodePrefix] = pszBillingCompany
+                            if pszBillingGroup and pszProjectCodePrefix not in objOrgTableGroupMap:
+                                objOrgTableGroupMap[pszProjectCodePrefix] = pszBillingGroup
     objHoldProjectLines: List[str] = []
 
     #
@@ -4055,6 +4063,22 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         for _, objRow in objIndexedSheet11CompanyRows:
             objSheet12CompanyFile.write(objRow[0] + "\t" + objRow[1] + "\t" + objRow[2] + "\n")
 
+    with open(pszSheet12CompanyGroupTsvPath, "w", encoding="utf-8") as objSheet12CompanyGroupFile:
+        for _, objRow in objIndexedSheet11CompanyRows:
+            pszProjectName, pszCompanyName, pszTotalManhour = objRow
+            pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
+            pszBillingGroup: str = objOrgTableGroupMap.get(pszProjectCodePrefix, "")
+            objSheet12CompanyGroupFile.write(
+                pszProjectName
+                + "\t"
+                + pszCompanyName
+                + "\t"
+                + pszBillingGroup
+                + "\t"
+                + pszTotalManhour
+                + "\n",
+            )
+
     pszStep10OutputPath: str = str(
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの工数.tsv"
@@ -4062,6 +4086,14 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     pszStep10CompanyOutputPath: str = str(
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの計上カンパニー名_工数.tsv"
+    )
+    pszStep10CompanyGroupOutputPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの計上カンパニー名_計上グループ_工数.tsv"
+    )
+    pszStep11CompanyOutputPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step11_各プロジェクトの計上カンパニー名_工数_カンパニーの工数.tsv"
     )
     with open(pszStep10OutputPath, "w", encoding="utf-8") as objStep10File:
         for _, (pszProjectName, pszTotalManhour) in objIndexedSheet11Rows:
@@ -4074,6 +4106,57 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 continue
             objStep10CompanyFile.write(
                 pszProjectName + "\t" + pszCompanyName + "\t" + pszTotalManhour + "\n"
+            )
+    with open(pszStep10CompanyGroupOutputPath, "w", encoding="utf-8") as objStep10CompanyGroupFile:
+        for _, (pszProjectName, pszCompanyName, pszTotalManhour) in objIndexedSheet11CompanyRows:
+            if str(pszProjectName).startswith(("A", "H")):
+                continue
+            pszProjectCodePrefix_step10: str = pszProjectName.split("_", 1)[0] + "_"
+            pszBillingGroup_step10: str = objOrgTableGroupMap.get(pszProjectCodePrefix_step10, "")
+            objStep10CompanyGroupFile.write(
+                pszProjectName
+                + "\t"
+                + pszCompanyName
+                + "\t"
+                + pszBillingGroup_step10
+                + "\t"
+                + pszTotalManhour
+                + "\n"
+            )
+    with open(pszStep11CompanyOutputPath, "w", encoding="utf-8") as objStep11CompanyFile:
+        pszZeroManhour: str = "0:00:00"
+        for _, (pszProjectName, pszCompanyName, pszTotalManhour) in objIndexedSheet11CompanyRows:
+            if str(pszProjectName).startswith(("A", "H")):
+                continue
+            pszFirstIncubation: str = pszZeroManhour
+            pszSecondIncubation: str = pszZeroManhour
+            pszThirdIncubation: str = pszZeroManhour
+            pszFourthIncubation: str = pszZeroManhour
+            bIsCompanyProject: bool = re.match(r"^C\d{3}_", str(pszProjectName)) is not None
+            if not bIsCompanyProject:
+                if pszCompanyName == "第一インキュ":
+                    pszFirstIncubation = pszTotalManhour
+                elif pszCompanyName == "第二インキュ":
+                    pszSecondIncubation = pszTotalManhour
+                elif pszCompanyName == "第三インキュ":
+                    pszThirdIncubation = pszTotalManhour
+                elif pszCompanyName == "第四インキュ":
+                    pszFourthIncubation = pszTotalManhour
+            objStep11CompanyFile.write(
+                pszProjectName
+                + "\t"
+                + pszCompanyName
+                + "\t"
+                + pszTotalManhour
+                + "\t"
+                + pszFirstIncubation
+                + "\t"
+                + pszSecondIncubation
+                + "\t"
+                + pszThirdIncubation
+                + "\t"
+                + pszFourthIncubation
+                + "\n"
             )
 
     # Staff_List.tsv の処理は削除
