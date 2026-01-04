@@ -3654,6 +3654,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_計上カンパニー名_工数.tsv"
     )
+    pszSheet12CompanyGroupTsvPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_計上カンパニー名_計上グループ_工数.tsv"
+    )
 
     def is_blank_sheet10(value: str | None) -> bool:
         if value is None:
@@ -3933,6 +3937,7 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     # 4. 計上カンパニーのマッピング読み込み
     #
     objOrgTableBillingMap: Dict[str, str] = {}
+    objOrgTableGroupMap: Dict[str, str] = {}
     objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
     if objOrgTableTsvPath.exists():
         with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
@@ -3941,7 +3946,8 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 if len(objRow) >= 4:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
-                    if pszProjectCodeOrg and pszBillingCompany:
+                    pszBillingGroup: str = objRow[4].strip() if len(objRow) >= 5 else ""
+                    if pszProjectCodeOrg and (pszBillingCompany or pszBillingGroup):
                         pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
                         pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
                         pszProjectCodePrefix: str = ""
@@ -3950,8 +3956,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                         elif pszProjectCodePrefixMatchOther is not None:
                             pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
                         if pszProjectCodePrefix:
-                            if pszProjectCodePrefix not in objOrgTableBillingMap:
+                            if pszBillingCompany and pszProjectCodePrefix not in objOrgTableBillingMap:
                                 objOrgTableBillingMap[pszProjectCodePrefix] = pszBillingCompany
+                            if pszBillingGroup and pszProjectCodePrefix not in objOrgTableGroupMap:
+                                objOrgTableGroupMap[pszProjectCodePrefix] = pszBillingGroup
     objHoldProjectLines: List[str] = []
 
     #
@@ -4054,6 +4062,22 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     with open(pszSheet12CompanyTsvPath, "w", encoding="utf-8") as objSheet12CompanyFile:
         for _, objRow in objIndexedSheet11CompanyRows:
             objSheet12CompanyFile.write(objRow[0] + "\t" + objRow[1] + "\t" + objRow[2] + "\n")
+
+    with open(pszSheet12CompanyGroupTsvPath, "w", encoding="utf-8") as objSheet12CompanyGroupFile:
+        for _, objRow in objIndexedSheet11CompanyRows:
+            pszProjectName, pszCompanyName, pszTotalManhour = objRow
+            pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
+            pszBillingGroup: str = objOrgTableGroupMap.get(pszProjectCodePrefix, "")
+            objSheet12CompanyGroupFile.write(
+                pszProjectName
+                + "\t"
+                + pszCompanyName
+                + "\t"
+                + pszBillingGroup
+                + "\t"
+                + pszTotalManhour
+                + "\n",
+            )
 
     pszStep10OutputPath: str = str(
         objBaseDirectoryPath
