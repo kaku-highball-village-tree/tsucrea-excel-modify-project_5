@@ -4091,6 +4091,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの計上カンパニー名_計上グループ_工数.tsv"
     )
+    pszStep11CompanyOutputPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step11_各プロジェクトの計上カンパニー名_工数_カンパニーの工数.tsv"
+    )
     with open(pszStep10OutputPath, "w", encoding="utf-8") as objStep10File:
         for _, (pszProjectName, pszTotalManhour) in objIndexedSheet11Rows:
             if str(pszProjectName).startswith(("A", "H")):
@@ -4117,6 +4121,39 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 + pszBillingGroup_step10
                 + "\t"
                 + pszTotalManhour
+                + "\n"
+            )
+    with open(pszStep11CompanyOutputPath, "w", encoding="utf-8") as objStep11CompanyFile:
+        pszZeroManhour: str = "0:00:00"
+        for _, (pszProjectName, pszCompanyName, pszTotalManhour) in objIndexedSheet11CompanyRows:
+            if str(pszProjectName).startswith(("A", "H")):
+                continue
+            pszFirstIncubation: str = pszZeroManhour
+            pszSecondIncubation: str = pszZeroManhour
+            pszThirdIncubation: str = pszZeroManhour
+            pszFourthIncubation: str = pszZeroManhour
+            if pszCompanyName == "第一インキュ":
+                pszFirstIncubation = pszTotalManhour
+            elif pszCompanyName == "第二インキュ":
+                pszSecondIncubation = pszTotalManhour
+            elif pszCompanyName == "第三インキュ":
+                pszThirdIncubation = pszTotalManhour
+            elif pszCompanyName == "第四インキュ":
+                pszFourthIncubation = pszTotalManhour
+            objStep11CompanyFile.write(
+                pszProjectName
+                + "\t"
+                + pszCompanyName
+                + "\t"
+                + pszTotalManhour
+                + "\t"
+                + pszFirstIncubation
+                + "\t"
+                + pszSecondIncubation
+                + "\t"
+                + pszThirdIncubation
+                + "\t"
+                + pszFourthIncubation
                 + "\n"
             )
 
