@@ -3646,6 +3646,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_工数.tsv"
     )
+    pszSheet12GroupTsvPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step09_昇順_合計_プロジェクト_所属グループ名_工数.tsv"
+    )
 
     def is_blank_sheet10(value: str | None) -> bool:
         if value is None:
@@ -3681,12 +3685,37 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             return pszProjectName
         return pszProjectName[:iUnderscoreIndex]
 
+    #/*
+    # *
+    # * process_single_input後半
+    # *
+    # * 管轄PJ表.csvを読み込み、正規化した内容を
+    # * 管轄PJ表_step0004.tsvとして書き出す処理です。
+    # *
+    # * 処理の流れ:
+    # * ・管轄PJ表.csvを行ごとに読み、=match' を除去。
+    # * ・末尾の空セルを削除。
+    # * ・先頭列が "No" でない行について、
+    # * 　3列目のPJコードを正規化。
+    # * 　2列目のPJ名にもコード接頭辞が足りない場合は付与してから正規化。
+    # *
+    # * ・再度末尾の空セルを削除し、
+    # * 　タブ区切りで 管轄PJ表_step0004.tsvに出力する。
+    # * 　この結果、元の管轄PJ表.tsvを上書きせず、
+    # * 　正規化済みの別ファイル（step0004）を生成する。
+    # *
+    # */
+    #
+    # 1. 管轄PJ表の再生成（step0004）
+    #
     objOrgTableCsvPath: Path = Path(__file__).resolve().parent / "管轄PJ表.csv"
-    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
+    objOrgTableStep0004Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0004.tsv")
+    objOrgTableStep0003Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0003.tsv")
+    objOrgTableStep0005Path: Path = objOrgTableCsvPath.with_name("管轄PJ表_step0005.tsv")
     if objOrgTableCsvPath.exists():
         with open(objOrgTableCsvPath, "r", encoding="utf-8") as objOrgTableCsvFile:
             objOrgTableReader = csv.reader(objOrgTableCsvFile)
-            with open(objOrgTableTsvPath, "w", encoding="utf-8") as objOrgTableTsvFile:
+            with open(objOrgTableStep0004Path, "w", encoding="utf-8") as objOrgTableTsvFile:
                 objOrgTableWriter = csv.writer(objOrgTableTsvFile, delimiter="\t", lineterminator="\n")
                 for objRow in objOrgTableReader:
                     objRow = [objCell.replace("=match'", "") for objCell in objRow]
@@ -3708,6 +3737,22 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     while objRow and objRow[-1] == "":
                         objRow.pop()
                     objOrgTableWriter.writerow(objRow)
+        if objOrgTableStep0003Path.exists():
+            with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
+                objStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
+                with open(objOrgTableStep0005Path, "w", encoding="utf-8") as objOrgTableStep0005File:
+                    objStep0005Writer = csv.writer(
+                        objOrgTableStep0005File,
+                        delimiter="\t",
+                        lineterminator="\n",
+                    )
+                    for objRow in objStep0003Reader:
+                        if len(objRow) > 1:
+                            objRow = [objRow[0]] + objRow[2:]
+                        objRow = [objCell.replace("=match'", "") for objCell in objRow]
+                        while objRow and objRow[-1] == "":
+                            objRow.pop()
+                        objStep0005Writer.writerow(objRow)
     else:
         pszOrgTableError = f"Error: 管轄PJ表.csv が見つかりません。Path = {objOrgTableCsvPath}"
         print(pszOrgTableError)
@@ -3717,6 +3762,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         messagebox.showwarning("警告", pszOrgTableError)
         objRoot.destroy()
 
+    #
+    # 2. Sheet7/Sheet10 の生成と正規化
+    #
     with open(pszSheet7TsvPath, "r", encoding="utf-8") as objSheet7File:
         objSheet7Lines: List[str] = objSheet7File.readlines()
     with open(pszSheet10GroupTaskTsvPath, "r", encoding="utf-8") as objSheet10GroupFile:
@@ -3794,6 +3842,47 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 pszManhour = objColumns[2]
             objSheet10GroupRows.append((pszProjectName, pszGroupName, pszManhour))
 
+    objPrefixPatternStep06: re.Pattern[str] = re.compile(r"^(P\d{5}_|[A-OQ-Z]\d{3}_)")
+
+    def extract_prefix_and_suffix_step06(pszName: str) -> tuple[str, str]:
+        objMatch = objPrefixPatternStep06.match(pszName)
+        if objMatch is None:
+            return "", pszName
+        pszPrefix = objMatch.group(1)
+        return pszPrefix, pszName[len(pszPrefix) :]
+
+    objStep07PrefixToName: Dict[str, str] = {}
+    for pszProjectName, _, _ in objSheet10GroupRows:
+        pszNameStep07: str = pszProjectName.strip()
+        if pszNameStep07 in ["本部", "その他"] or pszNameStep07 == "":
+            continue
+        pszPrefixStep07, _ = extract_prefix_and_suffix_step06(pszNameStep07)
+        if pszPrefixStep07 and pszPrefixStep07 not in objStep07PrefixToName:
+            objStep07PrefixToName[pszPrefixStep07] = pszNameStep07
+
+    objOrgTableStep0006DatedPath: Path = objOrgTableCsvPath.with_name(
+        f"管轄PJ表_step0006_{iFileYear}年{iFileMonth:02d}月.tsv"
+    )
+    if objOrgTableStep0005Path.exists():
+        with open(objOrgTableStep0005Path, "r", encoding="utf-8") as objStep0005File:
+            objStep0005Reader = csv.reader(objStep0005File, delimiter="\t")
+            with open(objOrgTableStep0006DatedPath, "w", encoding="utf-8") as objStep0006File:
+                objStep0006Writer = csv.writer(objStep0006File, delimiter="\t", lineterminator="\n")
+                for objRow in objStep0005Reader:
+                    if len(objRow) > 1:
+                        pszNameStep0005: str = objRow[1].strip()
+                        if pszNameStep0005 not in ["本部", "その他"]:
+                            pszPrefixStep0005, pszSuffixStep0005 = extract_prefix_and_suffix_step06(pszNameStep0005)
+                            if pszPrefixStep0005 and pszPrefixStep0005 in objStep07PrefixToName:
+                                pszNameStep07: str = objStep07PrefixToName[pszPrefixStep0005]
+                                _, pszSuffixStep07 = extract_prefix_and_suffix_step06(pszNameStep07)
+                                if pszSuffixStep0005 != pszSuffixStep07:
+                                    objRow[1] = pszNameStep07
+                    objStep0006Writer.writerow(objRow)
+
+    #
+    # 3. 集計（プロジェクト別、グループ別）
+    #
     objAggregatedSeconds: Dict[str, int] = {}
     objAggregatedOrder: List[str] = []
     for pszProjectName, pszManhour in objSheet10Rows:
@@ -3836,7 +3925,11 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         "第四インキュ",
     ]
     objIncubationPrioritySet: set[str] = set(objIncubationPriority)
+    #
+    # 4. 計上カンパニーのマッピング読み込み
+    #
     objOrgTableBillingMap: Dict[str, str] = {}
+    objOrgTableTsvPath: Path = objOrgTableCsvPath.with_suffix(".tsv")
     if objOrgTableTsvPath.exists():
         with open(objOrgTableTsvPath, "r", encoding="utf-8") as objOrgTableFile:
             objOrgTableReader = csv.reader(objOrgTableFile, delimiter="\t")
@@ -3845,17 +3938,28 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                     pszProjectCodeOrg: str = objRow[2].strip()
                     pszBillingCompany: str = objRow[3].strip()
                     if pszProjectCodeOrg and pszBillingCompany:
-                        if pszProjectCodeOrg not in objOrgTableBillingMap:
-                            objOrgTableBillingMap[pszProjectCodeOrg] = pszBillingCompany
+                        pszProjectCodePrefixMatchP: re.Match[str] | None = re.match(r"^(P\d{5}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefixMatchOther: re.Match[str] | None = re.match(r"^([A-OQ-Z]\d{3}_)", pszProjectCodeOrg)
+                        pszProjectCodePrefix: str = ""
+                        if pszProjectCodePrefixMatchP is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchP.group(1)
+                        elif pszProjectCodePrefixMatchOther is not None:
+                            pszProjectCodePrefix = pszProjectCodePrefixMatchOther.group(1)
+                        if pszProjectCodePrefix:
+                            if pszProjectCodePrefix not in objOrgTableBillingMap:
+                                objOrgTableBillingMap[pszProjectCodePrefix] = pszBillingCompany
     objHoldProjectLines: List[str] = []
 
+    #
+    # 5. 所属グループ名の決定ロジック（select_group_name_step08）
+    #
     def select_group_name_step08(
         pszProjectName: str,
         objGroupNames: List[str],
     ) -> str:
         if not objGroupNames:
             return ""
-        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0]
+        pszProjectCodePrefix: str = pszProjectName.split("_", 1)[0] + "_"
         if pszProjectCodePrefix in objOrgTableBillingMap:
             return objOrgTableBillingMap[pszProjectCodePrefix]
         pszProjectPrefix: str = pszProjectName[:1]
@@ -3876,7 +3980,11 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 return objIncubations[0]
         return objGroupNames[0]
 
+    #
+    # 6. グループ別合計TSVの出力
+    #
     with open(pszSheet11GroupTsvPath, "w", encoding="utf-8") as objSheet11GroupFile:
+        objSheet11GroupRows: List[Tuple[str, str, str]] = []
         for pszProjectName in objAggregatedGroupOrder:
             pszTotalManhour = format_seconds_to_manhour_sheet11(
                 objAggregatedGroupSeconds[pszProjectName],
@@ -3888,7 +3996,11 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             objSheet11GroupFile.write(
                 pszProjectName + "\t" + pszGroupName + "\t" + pszTotalManhour + "\n",
             )
+            objSheet11GroupRows.append((pszProjectName, pszGroupName, pszTotalManhour))
 
+    #
+    # 7. インキュ重複プロジェクトの警告出力
+    #
     if objHoldProjectLines:
         pszInputFileLine: str = f"入力ファイル名: {objInputPath.name}"
         pszGroupTsvLine: str = f"対象TSV: {pszSheet10GroupTsvPath}"
@@ -3912,6 +4024,9 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         messagebox.showwarning("警告", objMessage)
         objRoot.destroy()
 
+    #
+    # 8. 最終ソート・出力
+    #
     objIndexedSheet11Rows: List[Tuple[int, Tuple[str, str]]] = list(enumerate(objSheet11Rows))
     objIndexedSheet11Rows.sort(
         key=lambda objItem: (
@@ -3923,6 +4038,18 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
     with open(pszSheet12TsvPath, "w", encoding="utf-8") as objSheet12File:
         for _, objRow in objIndexedSheet11Rows:
             objSheet12File.write(objRow[0] + "\t" + objRow[1] + "\n")
+
+    objIndexedSheet11GroupRows: List[Tuple[int, Tuple[str, str, str]]] = list(enumerate(objSheet11GroupRows))
+    objIndexedSheet11GroupRows.sort(
+        key=lambda objItem: (
+            extract_project_prefix_sheet12(objItem[1][0]),
+            objItem[0],
+        ),
+    )
+
+    with open(pszSheet12GroupTsvPath, "w", encoding="utf-8") as objSheet12GroupFile:
+        for _, objRow in objIndexedSheet11GroupRows:
+            objSheet12GroupFile.write(objRow[0] + "\t" + objRow[1] + "\t" + objRow[2] + "\n")
 
     pszStep10OutputPath: str = str(
         objBaseDirectoryPath
