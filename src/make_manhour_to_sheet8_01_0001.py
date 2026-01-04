@@ -4087,6 +4087,10 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの計上カンパニー名_工数.tsv"
     )
+    pszStep10CompanyGroupOutputPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの計上カンパニー名_計上グループ_工数.tsv"
+    )
     with open(pszStep10OutputPath, "w", encoding="utf-8") as objStep10File:
         for _, (pszProjectName, pszTotalManhour) in objIndexedSheet11Rows:
             if str(pszProjectName).startswith(("A", "H")):
@@ -4098,6 +4102,22 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
                 continue
             objStep10CompanyFile.write(
                 pszProjectName + "\t" + pszCompanyName + "\t" + pszTotalManhour + "\n"
+            )
+    with open(pszStep10CompanyGroupOutputPath, "w", encoding="utf-8") as objStep10CompanyGroupFile:
+        for _, (pszProjectName, pszCompanyName, pszTotalManhour) in objIndexedSheet11CompanyRows:
+            if str(pszProjectName).startswith(("A", "H")):
+                continue
+            pszProjectCodePrefix_step10: str = pszProjectName.split("_", 1)[0] + "_"
+            pszBillingGroup_step10: str = objOrgTableGroupMap.get(pszProjectCodePrefix_step10, "")
+            objStep10CompanyGroupFile.write(
+                pszProjectName
+                + "\t"
+                + pszCompanyName
+                + "\t"
+                + pszBillingGroup_step10
+                + "\t"
+                + pszTotalManhour
+                + "\n"
             )
 
     # Staff_List.tsv の処理は削除
