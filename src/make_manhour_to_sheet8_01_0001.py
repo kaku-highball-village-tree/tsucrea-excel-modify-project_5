@@ -4055,11 +4055,22 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
         objBaseDirectoryPath
         / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの工数.tsv"
     )
+    pszStep10GroupOutputPath: str = str(
+        objBaseDirectoryPath
+        / f"工数_{iFileYear}年{iFileMonth:02d}月_step10_各プロジェクトの所属グループ名_工数.tsv"
+    )
     with open(pszStep10OutputPath, "w", encoding="utf-8") as objStep10File:
         for _, (pszProjectName, pszTotalManhour) in objIndexedSheet11Rows:
             if str(pszProjectName).startswith(("A", "H")):
                 continue
             objStep10File.write(pszProjectName + "\t" + pszTotalManhour + "\n")
+    with open(pszStep10GroupOutputPath, "w", encoding="utf-8") as objStep10GroupFile:
+        for _, (pszProjectName, pszGroupName, pszTotalManhour) in objIndexedSheet11GroupRows:
+            if str(pszProjectName).startswith(("A", "H")):
+                continue
+            objStep10GroupFile.write(
+                pszProjectName + "\t" + pszGroupName + "\t" + pszTotalManhour + "\n"
+            )
 
     # Staff_List.tsv の処理は削除
 
