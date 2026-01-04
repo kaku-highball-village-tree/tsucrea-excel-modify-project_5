@@ -3749,11 +3749,11 @@ def process_single_input(pszInputManhourCsvPath: str) -> int:
             with open(objOrgTableStep0003Path, "r", encoding="utf-8") as objOrgTableStep0003File:
                 objStep0003Reader = csv.reader(objOrgTableStep0003File, delimiter="\t")
                 with open(objOrgTableStep0005Path, "w", encoding="utf-8") as objOrgTableStep0005File:
-    objStep0005Writer = csv.writer(
-        objOrgTableStep0005File,
-        delimiter="\t",
-        lineterminator="\n",
-    )
+                    objStep0005Writer = csv.writer(
+                        objOrgTableStep0005File,
+                        delimiter="\t",
+                        lineterminator="\n",
+                    )
 
 
 def load_org_table_billing_map_for_step11() -> Dict[str, str]:
